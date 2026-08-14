@@ -241,7 +241,7 @@ table.data tr:nth-child(even) td{background:#fbfaf6}
     </div>
     <div id="logSummary" class="okbox"></div>
     <table class="data" id="logTable"></table>
-    <p class="hint" style="margin-top:8px">進到每一週時已預設「全到」——先按『全到』（或直接用預設），再把沒來的點成缺席／請假即可。請假不計入出席率與材料費份數。誤入沒上課的週次，按「清除本週」即可移除該週點名紀錄。</p>
+    <p class="hint" style="margin-top:8px">進到每一週時已預設「全到」——先按『全到』（或直接用預設），再把沒來的點成缺席／請假即可。出席率＝出席人數 ÷ 總報名人數（請假、缺席都計入分母，不算出席）；材料費份數＝出席學生數＋實際授課教師人數（讀「總覽」基本資料實填的指導老師數，未填時暫以 2 位計）。誤入沒上課的週次，按「清除本週」即可移除該週點名紀錄。</p>
   </div>
   <div class="panel acc">
     <h2>本週課程紀錄（成果報告書・參 的素材）</h2>
@@ -297,7 +297,8 @@ table.data tr:nth-child(even) td{background:#fbfaf6}
     <div style="overflow-x:auto"><table class="data" id="expTable"></table></div>
   </div>
   <div class="panel acc">
-    <h2>材料費對帳（份數 vs 出席＋2 位老師）</h2>
+    <h2>材料費對帳（份數 vs 出席＋實際授課教師數）</h2>
+    <p class="hint" style="margin-bottom:8px">材料費核算公式：（上課人數＋實際授課教師人數）× 主題 × 250 元。教師人數讀「總覽」基本資料實填的指導老師數（未填時暫以 2 位計）。<b>材料費、餐費、茶水費的發票／收據，需開立基金會統編：82339563 財團法人仰望教育基金會。</b></p>
     <div style="overflow-x:auto"><table class="data" id="reconTable"></table></div>
   </div>
 </section>
@@ -376,6 +377,11 @@ function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){
   return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
 function uid(){ return "s"+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function schoolName(){ return S.school==="其他" ? (S.schoolOther||"（未填學校）") : (S.school||"（未填學校）"); }
+function teacherCount(){
+  // P1-12：材料費的教師人數讀「基本資料」實填的指導老師數；未填時暫以 2 位計
+  var n = (S.t1 && S.t1.trim() ? 1 : 0) + (S.t2 && S.t2.trim() ? 1 : 0);
+  return n || 2;
+}
 
 function save(){
   try{
@@ -700,8 +706,9 @@ function renderLog(){
   var r = weekAtt(curWeek);
   var total = S.students.length;
   var unmarked = total - (r.p + r.a + r.l);
+  var tc = teacherCount();
   var html = r.marked
-    ? "本週出席 <b>"+r.p+"</b> 人／共 "+total+" 人（缺席 "+r.a+"、請假 "+r.l+"）　→　加上老師 2 位＝<b>材料費 "+(r.p+2)+" 份</b>"
+    ? "本週出席 <b>"+r.p+"</b> 人／共 "+total+" 人（缺席 "+r.a+"、請假 "+r.l+"）　→　加上授課教師 "+tc+" 位＝<b>材料費 "+(r.p+tc)+" 份</b>"
     : "本週尚未點名。點名完成後，這裡會直接告訴你材料費要買幾份。";
   if(r.marked && unmarked > 0){
     html += '<div style="color:#B43B3B;margin-top:6px">⚠ 還有 '+unmarked+' 位未點名，這週的數字先不算數——請把每一位都點到（或按「全到」再改掉沒來的）。</div>';
@@ -819,16 +826,17 @@ function renderExp(){
   }).join("");
 
   // 材料費對帳
-  var rh = '<tr><th>週次</th><th>日期／主題</th><th>出席＋老師2</th><th>材料費登記份數</th><th>對帳</th></tr>';
+  var tcr = teacherCount();
+  var rh = '<tr><th>週次</th><th>日期／主題</th><th>出席＋教師'+tcr+'</th><th>材料費登記份數</th><th>對帳</th></tr>';
   var any=false, totalNeed=0, totalGot=0, hasNeed=false;
   var hasAllEntry = S.exp.some(function(x){ return x.cat==="材料費" && x.week==="all"; });
   for(var w2=1;w2<=S.plan.length;w2++){
     var r = weekAtt(w2);
     var buys = S.exp.filter(function(x){ return x.cat==="材料費" && Number(x.week)===w2; });
-    if(r.marked){ totalNeed += r.p+2; hasNeed=true; }
+    if(r.marked){ totalNeed += r.p+tcr; hasNeed=true; }
     if(!r.marked && !buys.length) continue;
     any=true;
-    var need = r.marked ? r.p+2 : null;
+    var need = r.marked ? r.p+tcr : null;
     var got = buys.reduce(function(a,x){ return a+(Number(x.qty)||0); },0);
     totalGot += got;
     var ok = (need!==null && buys.length && got===need);
@@ -914,7 +922,7 @@ $("#btnPrintSign").addEventListener("click",function(){
   doPrint(pHead("社團課簽到表（教室日誌・附件二）")+
     '<div class="phead">第 '+curWeek+' 週　日期：'+(esc(p.date)||"＿＿＿＿")+'　主題：'+(esc(p.topic)||"＿＿＿＿＿＿＿＿")+'</div>'+
     '<table><tr><th style="width:44pt">座號</th><th style="width:80pt">班級</th><th>姓名</th><th>出席✓</th><th>簽名／備註</th></tr>'+rows+'</table>'+
-    '<div class="pfoot">本週出席：＿＿ 人／共 '+S.students.length+' 人　　加上老師 2 位＝材料費 ＿＿ 份（核銷用）</div>'+
+    '<div class="pfoot">本週出席：＿＿ 人／共 '+S.students.length+' 人　　加上授課教師 '+teacherCount()+' 位＝材料費 ＿＿ 份（核銷用）</div>'+
     '<div class="sig"><span>指導老師：＿＿＿＿＿＿</span><span>協同老師：＿＿＿＿＿＿</span></div>');
 });
 $("#btnPrintLog").addEventListener("click",function(){
@@ -929,7 +937,7 @@ $("#btnPrintLog").addEventListener("click",function(){
   doPrint(pHead("教室日誌（出席紀錄）")+
     '<div class="phead">第 '+curWeek+' 週　日期：'+esc(p.date)+'　主題：'+esc(p.topic)+'</div>'+
     '<table><tr><th style="width:44pt">座號</th><th style="width:80pt">班級</th><th>姓名</th><th style="width:80pt">出缺席</th></tr>'+rows+'</table>'+
-    '<div class="pfoot">本週出席 '+r.p+' 人／共 '+S.students.length+' 人（缺席 '+r.a+'、請假 '+r.l+'）　加上老師 2 位＝<b>材料費 '+(r.p+2)+' 份</b></div>');
+    '<div class="pfoot">本週出席 '+r.p+' 人／共 '+S.students.length+' 人（缺席 '+r.a+'、請假 '+r.l+'）　加上授課教師 '+teacherCount()+' 位＝<b>材料費 '+(r.p+teacherCount())+' 份</b></div>');
 });
 $("#btnPrintKpi").addEventListener("click",function(){
   var a = attRate();
