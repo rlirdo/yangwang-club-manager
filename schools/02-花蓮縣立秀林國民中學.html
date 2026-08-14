@@ -231,13 +231,14 @@ table.data tr:nth-child(even) td{background:#fbfaf6}
       <label>週次：<select id="logWeek"></select></label>
       <span id="logTopic" class="hint"></span>
       <button class="blk sm go" id="btnAllP">全到</button>
+      <button class="blk sm hot" id="btnClearWeek">清除本週</button>
       <button class="blk mark" id="btnPrintSign">列印空白簽到表</button>
       <button class="blk sm" id="btnPrintLog">列印本週日誌</button>
       <button class="blk sm" id="btnCsvAtt">匯出出席 CSV</button>
     </div>
     <div id="logSummary" class="okbox"></div>
     <table class="data" id="logTable"></table>
-    <p class="hint" style="margin-top:8px">點按鈕切換：出席 → 缺席 → 請假。請假不計入出席率與材料費份數。</p>
+    <p class="hint" style="margin-top:8px">進到每一週時已預設「全到」——先按『全到』（或直接用預設），再把沒來的點成缺席／請假即可。請假不計入出席率與材料費份數。誤入沒上課的週次，按「清除本週」即可移除該週點名紀錄。</p>
   </div>
 </section>
 
@@ -310,7 +311,7 @@ var STORE_KEY = "yw-club-mgr-v1-s02";
 var PRESET_SCHOOL = "花蓮縣立秀林國民中學"; // 各校專屬版會在這裡預填校名
 var SCHOOLS = [
   "花蓮縣立北昌國民小學","花蓮縣立秀林國民中學","花蓮縣立美崙國民中學","花蓮縣立國風國民中學",
-  "花蓮縣立大興國民小學","花蓮縣秀林鄉佳民國民小學","花蓮縣壽豐鄉豐山國民小學","花蓮縣壽豐鄉豐裡國民小學"
+  "花蓮縣光復鄉大興國民小學","花蓮縣秀林鄉佳民國民小學","花蓮縣壽豐鄉豐山國民小學","花蓮縣壽豐鄉豐裡國民小學"
 ];
 var DOCS = [
   ["plan","課程規劃表（24 週）","「課程規劃表」分頁完成後列印"],
@@ -482,25 +483,48 @@ document.addEventListener("change",function(e){
 });
 
 /* ============================ 名單 ============================ */
+var ROSTER_HEADERS = ["座號","學號","編號","班級","姓名","名字","備註"];
 function parseRoster(text){
-  var out = [];
+  var out = []; var headerSkipped = false; var firstSeen = false;
   text.split(/\r?\n/).forEach(function(line){
     line = line.trim(); if(!line) return;
     var parts = line.split(/\t|,|，|、/).map(function(x){return x.trim();}).filter(Boolean);
-    if(parts.length===1) parts = line.split(/\s+/).filter(Boolean);
+    var bySpace = false;
+    if(parts.length===1){
+      parts = line.split(/\s+/).filter(Boolean);
+      bySpace = parts.length > 1;
+    }
+    // 擋掉 Excel 標題列：第一個非空白列若含表頭字樣（座號／班級／姓名…）就整列略過
+    if(!firstSeen){
+      firstSeen = true;
+      var hits = parts.filter(function(p){ return ROSTER_HEADERS.indexOf(p) >= 0; }).length;
+      if(hits >= 1){ headerSkipped = true; return; }
+    }
     var seat="",klass="",name="";
-    if(parts.length>=3){ seat=parts[0]; klass=parts[1]; name=parts[2]; }
+    if(bySpace){
+      // 用空白切出來的：座號取開頭數字，其餘全部併回姓名（族語並列、羅馬拼音姓名中間就是空白）
+      var rest = parts;
+      if(/^\d+$/.test(rest[0])){ seat = rest[0]; rest = rest.slice(1); }
+      if(rest.length >= 2 && /班$/.test(rest[0])){ klass = rest[0]; rest = rest.slice(1); }
+      name = rest.join(" ");
+    } else if(parts.length>=3){ seat=parts[0]; klass=parts[1]; name=parts[2]; }
     else if(parts.length===2){
       if(/^\d+$/.test(parts[0])){ seat=parts[0]; name=parts[1]; }
       else { klass=parts[0]; name=parts[1]; }
     } else { name=parts[0]; }
     if(name) out.push({id:uid(),seat:seat,klass:klass,name:name,note:""});
   });
+  out.headerSkipped = headerSkipped;
   return out;
 }
 $("#btnImport").addEventListener("click",function(){
   var list = parseRoster($("#impBox").value);
-  if(!list.length){ $("#impMsg").textContent="沒讀到任何學生，請檢查貼上的內容。"; return; }
+  if(!list.length){
+    $("#impMsg").textContent = list.headerSkipped
+      ? "只讀到標題列（已略過），沒有學生資料。"
+      : "沒讀到任何學生，請檢查貼上的內容。";
+    return;
+  }
   var existing = {};
   S.students.forEach(function(s){ existing[s.klass+"|"+s.name] = true; });
   var added=0, skipped=0;
@@ -509,7 +533,8 @@ $("#btnImport").addEventListener("click",function(){
     S.students.push(s); added++;
   });
   $("#impBox").value="";
-  $("#impMsg").textContent = "匯入 "+added+" 位"+(skipped?("，略過重複 "+skipped+" 位"):"")+"。";
+  $("#impMsg").textContent = "匯入 "+added+" 位"+(skipped?("，略過重複 "+skipped+" 位"):"")
+    +(list.headerSkipped?"（第 1 列看起來像標題列，已略過）":"")+"。";
   save(); renderAll();
 });
 $("#btnAddOne").addEventListener("click",function(){
@@ -578,6 +603,11 @@ function renderLog(){
   $("#logTopic").textContent = (p.date?p.date+"｜":"") + (p.topic||"（課程規劃表尚未填本週主題）");
   var log = S.logs[curWeek] || (S.logs[curWeek]={att:{}});
   if(!log.att) log.att={};
+  // P0-05：進到某一週時預設「全到」，老師只要改掉沒來的（清除過的週次除外）
+  if(S.students.length && !Object.keys(log.att).length && !log.cleared){
+    S.students.forEach(function(st){ log.att[st.id]="p"; });
+    save();
+  }
 
   var h = '<tr><th style="width:70px">座號</th><th style="width:130px">班級</th><th>姓名</th><th style="width:110px">出缺席</th><th>備註</th></tr>';
   S.students.forEach(function(s){
@@ -592,9 +622,14 @@ function renderLog(){
 
   var r = weekAtt(curWeek);
   var total = S.students.length;
-  $("#logSummary").innerHTML = r.marked
+  var unmarked = total - (r.p + r.a + r.l);
+  var html = r.marked
     ? "本週出席 <b>"+r.p+"</b> 人／共 "+total+" 人（缺席 "+r.a+"、請假 "+r.l+"）　→　加上老師 2 位＝<b>材料費 "+(r.p+2)+" 份</b>"
     : "本週尚未點名。點名完成後，這裡會直接告訴你材料費要買幾份。";
+  if(r.marked && unmarked > 0){
+    html += '<div style="color:#B43B3B;margin-top:6px">⚠ 還有 '+unmarked+' 位未點名，這週的數字先不算數——請把每一位都點到（或按「全到」再改掉沒來的）。</div>';
+  }
+  $("#logSummary").innerHTML = html;
 }
 document.addEventListener("click",function(e){
   var id = e.target.dataset && e.target.dataset.att;
@@ -608,6 +643,12 @@ $("#btnAllP").addEventListener("click",function(){
   var log = S.logs[curWeek] || (S.logs[curWeek]={att:{}});
   S.students.forEach(function(s){ log.att[s.id]="p"; });
   save(); renderLog(); renderTop();
+});
+$("#btnClearWeek").addEventListener("click",function(){
+  if(!confirm("清除第 "+curWeek+" 週的全部點名紀錄？（該週會回到「尚未點名」）")) return;
+  // cleared 旗標讓這一週不再被「預設全到」蓋回去
+  S.logs[curWeek] = {att:{}, cleared:true};
+  save(); renderLog(); renderTop(); renderExp();
 });
 
 /* ============================ 回饋單 ============================ */
