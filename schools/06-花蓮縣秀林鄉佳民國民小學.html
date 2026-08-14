@@ -161,8 +161,9 @@ table.data tr:nth-child(even) td{background:#fbfaf6}
       <label>指導老師：<input id="setT1" placeholder="老師 1" style="width:120px"></label>
       <input id="setT2" placeholder="老師 2" style="width:120px">
       <label>學年度：<input id="setYear" value="115" style="width:80px"></label>
+      <label>總週數：<input id="setWeeks" type="number" min="1" max="60" style="width:80px"></label>
     </div>
-    <p class="hint" style="margin-top:8px">官方規定：24 週、每週至少 2 小時、社團至少 15 人（小校可降至 10 人）、國小收 3–6 年級、國中收 1–3 年級。</p>
+    <p class="hint" style="margin-top:8px">官方規定：24 週、每週至少 2 小時、社團至少 15 人（小校可降至 10 人）、國小收 3–6 年級、國中收 1–3 年級。週次或時數不同的學校（例：28 週、每週 3 小時），改「總週數」與課程規劃表的「時數」欄即可。</p>
   </div>
 
   <div class="panel acc">
@@ -172,6 +173,7 @@ table.data tr:nth-child(even) td{background:#fbfaf6}
     <div class="rowwrap" style="margin-top:16px">
       <label>⑥ 課程延伸應用到正式自然課的比例：<input id="selfQ6" type="number" min="0" max="100" style="width:90px"> %</label>
       <label>⑦ 老師覺得對專業有實質幫助的比例：<input id="selfQ7" type="number" min="0" max="100" style="width:90px"> %</label>
+      <button class="blk mark" id="btnPrintKpi">列印成果報告書素材頁</button>
     </div>
   </div>
 
@@ -199,6 +201,7 @@ table.data tr:nth-child(even) td{background:#fbfaf6}
     <div class="rowwrap" style="margin-top:8px">
       <button class="blk go" id="btnImport">貼上匯入</button>
       <button class="blk sm" id="btnAddOne">＋手動加一位</button>
+      <button class="blk sm mark" id="btnPrintRoster">列印學生名單（附件一）</button>
       <button class="blk sm" id="btnCsvRoster">匯出名單 CSV</button>
       <span class="hint" id="impMsg"></span>
     </div>
@@ -219,7 +222,7 @@ table.data tr:nth-child(even) td{background:#fbfaf6}
       <button class="blk sm" id="btnCsvPlan">匯出 CSV</button>
       <span class="hint">直接在表格內修改，自動儲存。每週至少 2 小時。</span>
     </div>
-    <table class="data" id="planTable"></table>
+    <div style="overflow-x:auto"><table class="data" id="planTable"></table></div>
   </div>
 </section>
 
@@ -248,7 +251,8 @@ table.data tr:nth-child(even) td{background:#fbfaf6}
     <h2>學生回饋單（官方附件三｜①–④ 百分比的唯一來源）</h2>
     <div class="rowwrap" style="margin-bottom:12px">
       <button class="blk mark" id="btnPrintFb">列印空白回饋單（發給學生）</button>
-      <label>回收份數：<input id="fbN" type="number" min="0" style="width:90px"></label>
+      <label>回收份數（實際收回的份數）：<input id="fbN" type="number" min="0" style="width:90px"></label>
+      <span id="fbRate" class="hint"></span>
     </div>
     <p class="hint" style="margin-bottom:12px">回饋單收回來後，把每一題各選項的「人數」填進來，百分比自動計算（很同意＋同意 ÷ 回收份數）。</p>
     <table class="data" id="fbTable"></table>
@@ -272,11 +276,11 @@ table.data tr:nth-child(even) td{background:#fbfaf6}
       <button class="blk sm" id="btnCsvExp">匯出 CSV</button>
     </div>
     <div id="expTotals" class="rowwrap" style="margin-bottom:12px"></div>
-    <table class="data" id="expTable"></table>
+    <div style="overflow-x:auto"><table class="data" id="expTable"></table></div>
   </div>
   <div class="panel acc">
     <h2>材料費對帳（份數 vs 出席＋2 位老師）</h2>
-    <table class="data" id="reconTable"></table>
+    <div style="overflow-x:auto"><table class="data" id="reconTable"></table></div>
   </div>
 </section>
 
@@ -284,7 +288,7 @@ table.data tr:nth-child(even) td{background:#fbfaf6}
 <section data-page="bak">
   <div class="panel acc">
     <h2>備份與還原</h2>
-    <p class="hint" style="margin-bottom:12px">所有資料只存在<b>這台電腦的這個瀏覽器</b>裡。請養成習慣：每次上完課點一次「匯出備份」，把檔案存到隨身碟或雲端硬碟。換電腦時用「匯入備份」還原。</p>
+    <p class="hint" style="margin-bottom:12px">所有資料只存在<b>這台電腦的這個瀏覽器</b>裡。請養成習慣：每次上完課點一次「匯出備份」。<b style="color:#B43B3B">.json 備份裡有整班學生姓名——存學校配發的隨身碟或校內雲端，不要放個人雲端、不要用 LINE 或 email 傳。</b>換電腦時用「匯入備份」還原。電腦要送修、要還、要借人之前：先按「匯出備份」把 .json 存好，再按「清除全部資料」——光刪 HTML 檔沒用，名單存在瀏覽器裡，不會跟著檔案走。</p>
     <div class="rowwrap">
       <button class="blk go" id="btnExport">匯出備份（.json）</button>
       <button class="blk blue" id="btnImportBak">匯入備份</button>
@@ -328,14 +332,14 @@ var DOCS = [
 var FBQ = [
   ["q1","參加社團以後，我更想知道科學的「為什麼」","① 興趣提升"],
   ["q2","上課的時候，我會專心聽，也會跟大家一起討論","② 專心參與"],
-  ["q3","做實驗的時候，我可以自己動手完成","③ 獨立操作"],
-  ["q4","我可以跟別人說明我們的實驗在做什麼","④ 能說明實驗"]
+  ["q3","做實驗的時候，我會照安全規則做，可以自己完成，或老師稍微提醒一下就能完成","③ 獨立操作（含低度協助）"],
+  ["q4","我可以跟別人說明我們的實驗在做什麼，或介紹我做出來的成果","④ 能說明實驗或展示成果"]
 ];
 var FBOPT = ["很同意","同意","普通","不同意"];
 
 function blankState(){
   var plan = [];
-  for (var i=1;i<=24;i++) plan.push({week:i,date:"",topic:"",teacher:"",note:""});
+  for (var i=1;i<=24;i++) plan.push({week:i,date:"",topic:"",teacher:"",note:"",hours:2});
   var docs = {};
   DOCS.forEach(function(d){ docs[d[0]] = {st:"todo",note:""}; });
   var fb = {n:0};
@@ -361,19 +365,30 @@ function save(){
     $("#savedAt").textContent = "⚠ 無法存檔（瀏覽器封鎖了儲存）";
   }
 }
+function normalize(o){
+  // 把任何來源（localStorage、備份檔）的資料補齊成完整結構；版本升級時不會壞資料
+  var b = blankState();
+  Object.keys(b).forEach(function(k){ if(o[k]!==undefined) b[k]=o[k]; });
+  if(!Array.isArray(b.plan) || !b.plan.length){ b.plan = blankState().plan; }
+  b.plan.forEach(function(p,i){
+    p.week = i+1;
+    if(p.hours===undefined || p.hours==="") p.hours = 2;
+    ["date","topic","teacher","note"].forEach(function(k){ if(p[k]===undefined) p[k]=""; });
+  });
+  DOCS.forEach(function(d){ if(!b.docs[d[0]]) b.docs[d[0]]={st:"todo",note:""}; });
+  FBQ.forEach(function(q){ if(!b.fb[q[0]]) b.fb[q[0]]=[0,0,0,0]; });
+  if(!b.fb.n) b.fb.n = b.fb.n||0;
+  if(!Array.isArray(b.students)) b.students = [];
+  if(!b.logs || typeof b.logs!=="object") b.logs = {};
+  if(!Array.isArray(b.exp)) b.exp = [];
+  return b;
+}
 function load(){
   var raw = null;
   try{ raw = localStorage.getItem(STORE_KEY); }catch(e){}
   if(!raw) return;
   try{
-    var o = JSON.parse(raw);
-    var b = blankState();
-    Object.keys(b).forEach(function(k){ if(o[k]!==undefined) b[k]=o[k]; });
-    // 補齊 24 週與文件清單（版本升級時不會壞資料）
-    while(b.plan.length<24) b.plan.push({week:b.plan.length+1,date:"",topic:"",teacher:"",note:""});
-    DOCS.forEach(function(d){ if(!b.docs[d[0]]) b.docs[d[0]]={st:"todo",note:""}; });
-    FBQ.forEach(function(q){ if(!b.fb[q[0]]) b.fb[q[0]]=[0,0,0,0]; });
-    S = b;
+    S = normalize(JSON.parse(raw));
   }catch(e){}
 }
 
@@ -391,14 +406,19 @@ function weekAtt(w){ // 回傳 {p,a,l,marked} 該週點名結果
 }
 function attRate(){ // 累計出席率：Σ出席 / Σ(名單數-請假? ) → 官方口徑用 出席/應到（含缺席、不含請假仍算應到）
   var num=0, den=0, weeks=0;
-  for(var w=1;w<=24;w++){
+  for(var w=1;w<=S.plan.length;w++){
     var r = weekAtt(w);
     if(r.marked){ num += r.p; den += S.students.length; weeks++; }
   }
   return {rate: den>0 ? Math.round(num/den*100) : null, weeks:weeks};
 }
+function fbSum(qk){
+  var arr = S.fb[qk]||[0,0,0,0];
+  return Number(arr[0])+Number(arr[1])+Number(arr[2])+Number(arr[3]);
+}
 function fbPct(qk){
   var n = Number(S.fb.n)||0; if(n<=0) return null;
+  if(fbSum(qk) > n) return null;   // 合計超過回收份數：數字有問題，不給值
   var arr = S.fb[qk]||[0,0,0,0];
   return Math.round((Number(arr[0])+Number(arr[1]))/n*100);
 }
@@ -434,7 +454,31 @@ function renderSettings(){
   $("#setSchoolOther").style.display = S.school==="其他" ? "" : "none";
   $("#setSchoolOther").value = S.schoolOther||"";
   $("#setClub").value=S.club; $("#setT1").value=S.t1; $("#setT2").value=S.t2; $("#setYear").value=S.year;
+  $("#setWeeks").value = S.plan.length;
   $("#selfQ6").value=S.selfQ6; $("#selfQ7").value=S.selfQ7;
+}
+// P1-15：總週數可調——加週直接補列；減週前檢查要被移除的週有沒有資料
+function adjustWeeks(n){
+  n = Math.max(1, Math.min(60, Math.floor(Number(n)||0)));
+  if(!n || n === S.plan.length){ $("#setWeeks").value = S.plan.length; return; }
+  while(S.plan.length < n){
+    S.plan.push({week:S.plan.length+1,date:"",topic:"",teacher:"",note:"",hours:2});
+  }
+  if(n < S.plan.length){
+    for(var w = n+1; w <= S.plan.length; w++){
+      var p = S.plan[w-1] || {};
+      var hasPlan = (p.topic||p.date||p.teacher||p.note);
+      var hasLog = S.logs[w] && S.logs[w].att && Object.keys(S.logs[w].att).length;
+      var hasExp = S.exp.some(function(x){ return Number(x.week)===w; });
+      if(hasPlan || hasLog || hasExp){
+        alert("第 "+w+" 週已有課程、點名或核銷資料，先清掉才能把總週數縮到 "+n+"。");
+        $("#setWeeks").value = S.plan.length;
+        return;
+      }
+    }
+    S.plan = S.plan.slice(0, n);
+  }
+  save(); renderAll();
 }
 [["setSchool","school"],["setSchoolOther","schoolOther"],["setClub","club"],
  ["setT1","t1"],["setT2","t2"],["setYear","year"],["selfQ6","selfQ6"],["selfQ7","selfQ7"]]
@@ -445,6 +489,9 @@ function renderSettings(){
     if(pair[0]==="setSchool") $("#setSchoolOther").style.display = S.school==="其他" ? "" : "none";
     save(); renderDash(); renderTop();
   });
+});
+document.addEventListener("change",function(e){
+  if(e.target.id==="setWeeks") adjustWeeks(e.target.value);
 });
 
 function renderDash(){
@@ -572,11 +619,12 @@ document.addEventListener("click",function(e){
 
 /* ============================ 課程規劃 ============================ */
 function renderPlan(){
-  var h = '<tr><th style="width:64px">週次</th><th style="width:150px">日期</th><th>課程內容</th><th style="width:130px">任課教師</th><th style="width:180px">備註</th></tr>';
+  var h = '<tr><th style="width:64px">週次</th><th style="width:150px">日期</th><th>課程內容</th><th style="width:80px">時數</th><th style="width:130px">任課教師</th><th style="width:180px">備註</th></tr>';
   S.plan.forEach(function(p,i){
     h += '<tr><td class="num" style="text-align:center;font-weight:700">'+p.week+'</td>'+
       '<td><input class="cell" type="date" data-pl="'+i+'" data-f="date" value="'+esc(p.date)+'"></td>'+
       '<td><input class="cell" data-pl="'+i+'" data-f="topic" value="'+esc(p.topic)+'"></td>'+
+      '<td><input class="cell num" type="number" min="0" step="0.5" data-pl="'+i+'" data-f="hours" value="'+esc(p.hours===undefined?2:p.hours)+'"></td>'+
       '<td><input class="cell" data-pl="'+i+'" data-f="teacher" value="'+esc(p.teacher)+'"></td>'+
       '<td><input class="cell" data-pl="'+i+'" data-f="note" value="'+esc(p.note)+'"></td></tr>';
   });
@@ -592,12 +640,17 @@ document.addEventListener("change",function(e){
 var curWeek = 1;
 function renderLog(){
   var sel = $("#logWeek");
-  if(!sel.options.length){
-    for(var w=1;w<=24;w++){
-      var o=document.createElement("option"); o.value=w; o.textContent="第 "+w+" 週"; sel.appendChild(o);
-    }
+  if(!sel.dataset.wired){
+    sel.dataset.wired = "1";
     sel.addEventListener("change",function(){ curWeek=Number(sel.value); renderLog(); });
   }
+  if(sel.options.length !== S.plan.length){
+    sel.innerHTML = "";
+    for(var w=1;w<=S.plan.length;w++){
+      var o=document.createElement("option"); o.value=w; o.textContent="第 "+w+" 週"; sel.appendChild(o);
+    }
+  }
+  if(curWeek > S.plan.length) curWeek = S.plan.length;
   sel.value=curWeek;
   var p = S.plan[curWeek-1]||{};
   $("#logTopic").textContent = (p.date?p.date+"｜":"") + (p.topic||"（課程規劃表尚未填本週主題）");
@@ -654,11 +707,21 @@ $("#btnClearWeek").addEventListener("click",function(){
 /* ============================ 回饋單 ============================ */
 function renderFb(){
   $("#fbN").value = S.fb.n||"";
+  var n = Number(S.fb.n)||0;
+  $("#fbRate").textContent = "應收 "+S.students.length+" 份（名單人數自動帶入）"
+    + (n>0 ? "｜回收 "+n+" 份／應收 "+S.students.length+" 份" : "");
   var h = '<tr><th>題目</th>'+FBOPT.map(function(o){return '<th style="width:96px">'+o+'</th>';}).join("")+
     '<th style="width:130px">達成率</th></tr>';
   FBQ.forEach(function(q){
     var arr = S.fb[q[0]];
-    h += '<tr><td><b>'+esc(q[1])+'</b><div class="hint">對應官方 '+q[2]+'</div></td>';
+    var sum = fbSum(q[0]);
+    var status = "";
+    if(n>0 && sum>n){
+      status = '<div style="color:#B43B3B;font-weight:700">合計 '+sum+' ＞ 回收 '+n+'，請檢查（是不是把人次當成人數了？）</div>';
+    } else if(n>0 && sum>0 && sum<n){
+      status = '<div class="hint">尚未填完（合計 '+sum+'／'+n+'）</div>';
+    }
+    h += '<tr><td><b>'+esc(q[1])+'</b><div class="hint">對應官方 '+q[2]+'</div>'+status+'</td>';
     for(var i=0;i<4;i++){
       h += '<td><input class="cell num" type="number" min="0" data-fbq="'+q[0]+'" data-i="'+i+'" value="'+(arr[i]||0)+'"></td>';
     }
@@ -684,9 +747,13 @@ function periodOf(dateStr){
 }
 function renderExp(){
   var wsel = $("#expWeek");
-  if(!wsel.options.length){
+  if(wsel.options.length !== S.plan.length + 2){
+    var keep = wsel.value;
+    wsel.innerHTML = "";
     var o0=document.createElement("option"); o0.value=""; o0.textContent="（對應週次）"; wsel.appendChild(o0);
-    for(var w=1;w<=24;w++){ var o=document.createElement("option"); o.value=w; o.textContent="第 "+w+" 週"; wsel.appendChild(o); }
+    var oa=document.createElement("option"); oa.value="all"; oa.textContent="整學期／未指定"; wsel.appendChild(oa);
+    for(var w=1;w<=S.plan.length;w++){ var o=document.createElement("option"); o.value=w; o.textContent="第 "+w+" 週"; wsel.appendChild(o); }
+    wsel.value = keep || "";
   }
   var h = '<tr><th>類別</th><th>認列日期</th><th>期別</th><th>品項／說明</th><th>金額</th><th>份數</th><th>週次</th><th></th></tr>';
   var totals = {};
@@ -695,7 +762,7 @@ function renderExp(){
     h += '<tr><td><span class="tag">'+esc(x.cat)+'</span></td><td class="num">'+esc(x.date)+'</td>'+
       '<td>'+periodOf(x.date)+'</td><td>'+esc(x.item)+'</td>'+
       '<td class="num">'+(Number(x.amt)||0).toLocaleString()+'</td>'+
-      '<td class="num">'+esc(x.qty||"")+'</td><td class="num">'+(x.week?("第 "+x.week+" 週"):"")+'</td>'+
+      '<td class="num">'+esc(x.qty||"")+'</td><td class="num">'+(x.week==="all"?"整學期":(x.week?("第 "+x.week+" 週"):""))+'</td>'+
       '<td><button class="blk sm hot" data-expdel="'+x.id+'">刪</button></td></tr>';
   });
   if(!S.exp.length) h += '<tr><td colspan="8">尚無登記。</td></tr>';
@@ -706,22 +773,39 @@ function renderExp(){
 
   // 材料費對帳
   var rh = '<tr><th>週次</th><th>日期／主題</th><th>出席＋老師2</th><th>材料費登記份數</th><th>對帳</th></tr>';
-  var any=false;
-  for(var w2=1;w2<=24;w2++){
+  var any=false, totalNeed=0, totalGot=0, hasNeed=false;
+  var hasAllEntry = S.exp.some(function(x){ return x.cat==="材料費" && x.week==="all"; });
+  for(var w2=1;w2<=S.plan.length;w2++){
     var r = weekAtt(w2);
     var buys = S.exp.filter(function(x){ return x.cat==="材料費" && Number(x.week)===w2; });
+    if(r.marked){ totalNeed += r.p+2; hasNeed=true; }
     if(!r.marked && !buys.length) continue;
     any=true;
     var need = r.marked ? r.p+2 : null;
     var got = buys.reduce(function(a,x){ return a+(Number(x.qty)||0); },0);
+    totalGot += got;
     var ok = (need!==null && buys.length && got===need);
-    var msg = !buys.length ? '<span class="hint">尚未登記材料費</span>'
+    var msg = !buys.length ? (hasAllEntry ? '<span class="hint">含在整學期登記（見下方全期合計）</span>'
+                                          : '<span class="hint">尚未登記材料費</span>')
             : need===null ? '<span class="hint">本週尚未點名</span>'
             : ok ? '<span class="tag p">✔ 相符</span>'
             : '<span class="tag a">✘ 不符（差 '+(got-need>0?"+":"")+(got-need)+'）</span>';
     var p = S.plan[w2-1]||{};
     rh += '<tr><td class="num">第 '+w2+' 週</td><td>'+esc((p.date||"")+" "+(p.topic||""))+'</td>'+
       '<td class="num">'+(need===null?"—":need+" 份")+'</td><td class="num">'+(buys.length?got+" 份":"—")+'</td><td>'+msg+'</td></tr>';
+  }
+  // P1-13：整學期／未指定 的材料費列一列，加總後跟全期 Σ（出席＋老師2）對一次
+  var allBuys = S.exp.filter(function(x){ return x.cat==="材料費" && x.week==="all"; });
+  if(allBuys.length){
+    any = true;
+    var allGot = allBuys.reduce(function(a,x){ return a+(Number(x.qty)||0); },0);
+    var grand = totalGot + allGot;
+    var allMsg = !hasNeed ? '<span class="hint">尚無已點名週次可對</span>'
+               : grand===totalNeed ? '<span class="tag p">✔ 全期相符</span>'
+               : '<span class="tag a">✘ 全期不符（差 '+(grand-totalNeed>0?"+":"")+(grand-totalNeed)+'）</span>';
+    rh += '<tr style="border-top:2px solid #000"><td class="num" style="font-weight:700">整學期</td>'+
+      '<td>整學期／未指定登記 '+allGot+' 份；全期合計 '+grand+' 份</td>'+
+      '<td class="num">全期 '+(hasNeed?totalNeed+" 份":"—")+'</td><td class="num">'+grand+' 份</td><td>'+allMsg+'</td></tr>';
   }
   if(!any) rh += '<tr><td colspan="5">點名或登記材料費後，這裡會自動對帳。</td></tr>';
   $("#reconTable").innerHTML = rh;
@@ -753,20 +837,21 @@ function doPrint(html){
 $("#btnPrintPlan").addEventListener("click",function(){
   var rows = S.plan.map(function(p){
     return '<tr><td style="text-align:center">'+p.week+'</td><td>'+esc(p.date)+'</td><td>'+esc(p.topic)+
-      '</td><td>'+esc(p.teacher)+'</td><td>'+esc(p.note)+'</td></tr>';
+      '</td><td style="text-align:center">'+esc(p.hours===undefined?2:p.hours)+'</td><td>'+esc(p.teacher)+'</td><td>'+esc(p.note)+'</td></tr>';
   }).join("");
   doPrint(pHead("課程規劃表")+
-    '<table><tr><th style="width:44pt">週次</th><th style="width:80pt">日期</th><th>課程內容</th><th style="width:80pt">任課教師</th><th style="width:90pt">備註</th></tr>'+rows+'</table>'+
-    '<div class="pfoot">每週至少 2 小時；共 24 週。</div>');
+    '<table><tr><th style="width:44pt">週次</th><th style="width:80pt">日期</th><th>課程內容</th><th style="width:44pt">時數</th><th style="width:80pt">任課教師</th><th style="width:90pt">備註</th></tr>'+rows+'</table>'+
+    '<div class="pfoot">每週至少 2 小時；共 '+S.plan.length+' 週。</div>');
 });
 $("#btnPrintHours").addEventListener("click",function(){
   var rows="", tot=0;
   S.plan.forEach(function(p){
     var r = weekAtt(p.week);
     if(!p.date && !r.marked) return;
-    tot += 2;
+    var hrs = Number(p.hours===undefined?2:p.hours)||0;
+    tot += hrs;
     rows += '<tr><td style="text-align:center">'+p.week+'</td><td>'+esc(p.date)+'</td><td>'+esc(p.topic)+
-      '</td><td style="text-align:center">2</td><td>'+esc(p.teacher)+'</td><td></td></tr>';
+      '</td><td style="text-align:center">'+hrs+'</td><td>'+esc(p.teacher)+'</td><td></td></tr>';
   });
   doPrint(pHead("授課時數表（鐘點費核銷用）")+
     '<table><tr><th>週次</th><th>上課日期</th><th>課程內容</th><th>時數</th><th>授課教師</th><th style="width:90pt">教師簽名</th></tr>'+rows+'</table>'+
@@ -799,6 +884,41 @@ $("#btnPrintLog").addEventListener("click",function(){
     '<table><tr><th style="width:44pt">座號</th><th style="width:80pt">班級</th><th>姓名</th><th style="width:80pt">出缺席</th></tr>'+rows+'</table>'+
     '<div class="pfoot">本週出席 '+r.p+' 人／共 '+S.students.length+' 人（缺席 '+r.a+'、請假 '+r.l+'）　加上老師 2 位＝<b>材料費 '+(r.p+2)+' 份</b></div>');
 });
+$("#btnPrintKpi").addEventListener("click",function(){
+  var a = attRate();
+  function fbLine(no, qk, lbl){
+    var pct = fbPct(qk); var arr = S.fb[qk]||[0,0,0,0]; var n = Number(S.fb.n)||0;
+    var v = pct===null ? "＿＿＿" : pct+"%";
+    var src = n>0 ? "（回收 "+n+" 份：很同意 "+(arr[0]||0)+"＋同意 "+(arr[1]||0)+"）" : "（回饋單尚未統計）";
+    return '<tr><td>'+no+'</td><td>'+lbl+'</td><td style="text-align:center;font-weight:bold">'+v+'</td><td>'+src+'</td></tr>';
+  }
+  var kpiRows = fbLine("①","q1","學生對科學探索的興趣提升")
+    + fbLine("②","q2","學生上課專心、能參與討論")
+    + fbLine("③","q3","學生能自己（或低度協助）完成實驗操作")
+    + fbLine("④","q4","學生能說明實驗或展示成果")
+    + '<tr><td>⑤</td><td>社團整體出席率</td><td style="text-align:center;font-weight:bold">'+(a.rate===null?"＿＿＿":a.rate+"%")+'</td><td>（教室日誌，已點名 '+a.weeks+' 週）</td></tr>'
+    + '<tr><td>⑥</td><td>課程延伸應用到正式自然課</td><td style="text-align:center;font-weight:bold">'+(S.selfQ6===""?"＿＿＿":S.selfQ6+"%")+'</td><td>（老師自評）</td></tr>'
+    + '<tr><td>⑦</td><td>老師覺得對專業有實質幫助</td><td style="text-align:center;font-weight:bold">'+(S.selfQ7===""?"＿＿＿":S.selfQ7+"%")+'</td><td>（老師自評）</td></tr>';
+  doPrint(pHead("成果報告書素材頁（壹・基本資料＋肆・效益達成情形）")+
+    '<table><tr><th style="width:110pt">欄位</th><th>內容</th></tr>'+
+    '<tr><td>學校</td><td>'+esc(schoolName())+'</td></tr>'+
+    '<tr><td>社團名稱</td><td>'+esc(S.club||"＿＿＿＿")+'</td></tr>'+
+    '<tr><td>學年度</td><td>'+esc(S.year)+'</td></tr>'+
+    '<tr><td>指導老師</td><td>'+esc(S.t1||"＿＿＿")+"　"+esc(S.t2||"")+'</td></tr>'+
+    '<tr><td>社團學生數</td><td>'+S.students.length+' 人</td></tr>'+
+    '<tr><td>總週數</td><td>'+S.plan.length+' 週</td></tr></table>'+
+    '<div class="phead" style="margin-top:10pt">肆・效益達成情形（七個百分比，抄進報告書即可）</div>'+
+    '<table><tr><th style="width:30pt">項</th><th>指標</th><th style="width:60pt">百分比</th><th>來源與分母</th></tr>'+kpiRows+'</table>'+
+    '<div class="pfoot">分子分母口徑送件前以基金會窗口確認為準；旁註回收率（回收 '+(Number(S.fb.n)||0)+' 份／應收 '+S.students.length+' 份）。</div>');
+});
+$("#btnPrintRoster").addEventListener("click",function(){
+  var rows = S.students.map(function(s){
+    return '<tr><td style="text-align:center">'+esc(s.seat)+'</td><td>'+esc(s.klass)+'</td><td>'+esc(s.name)+'</td><td>'+esc(s.note)+'</td></tr>';
+  }).join("");
+  doPrint(pHead("學生名單（附件一）")+
+    '<table><tr><th style="width:50pt">座號</th><th style="width:90pt">班級</th><th>姓名</th><th style="width:110pt">備註</th></tr>'+rows+'</table>'+
+    '<div class="pfoot">共 '+S.students.length+' 人。座號以此列印版為準（Excel 開 CSV 會把「01」變成 1）。</div>');
+});
 $("#btnPrintFb").addEventListener("click",function(){
   var opts = '<span style="margin-right:14pt">□ 很同意</span><span style="margin-right:14pt">□ 同意</span><span style="margin-right:14pt">□ 普通</span><span>□ 不同意</span>';
   var qs = FBQ.map(function(q,i){
@@ -825,15 +945,15 @@ $("#btnCsvRoster").addEventListener("click",function(){
   downloadFile("學生名單.csv","text/csv",toCsv(rows));
 });
 $("#btnCsvPlan").addEventListener("click",function(){
-  var rows = [["週次","日期","課程內容","任課教師","備註"]].concat(S.plan.map(function(p){return [p.week,p.date,p.topic,p.teacher,p.note];}));
+  var rows = [["週次","日期","課程內容","時數","任課教師","備註"]].concat(S.plan.map(function(p){return [p.week,p.date,p.topic,(p.hours===undefined?2:p.hours),p.teacher,p.note];}));
   downloadFile("課程規劃表.csv","text/csv",toCsv(rows));
 });
 $("#btnCsvAtt").addEventListener("click",function(){
-  var head = ["座號","班級","姓名"]; for(var w=1;w<=24;w++) head.push("W"+w);
+  var head = ["座號","班級","姓名"]; for(var w=1;w<=S.plan.length;w++) head.push("W"+w);
   var rows = [head];
   S.students.forEach(function(s){
     var r = [s.seat,s.klass,s.name];
-    for(var w2=1;w2<=24;w2++){
+    for(var w2=1;w2<=S.plan.length;w2++){
       var v = (S.logs[w2]&&S.logs[w2].att)?S.logs[w2].att[s.id]:"";
       r.push(v==="p"?"出":v==="a"?"缺":v==="l"?"假":"");
     }
@@ -858,15 +978,24 @@ $("#bakFile").addEventListener("change",function(){
   var f = this.files[0]; if(!f) return;
   var rd = new FileReader();
   rd.onload = function(){
+    var o = null;
+    try{ o = JSON.parse(rd.result); }catch(e){}
+    if(!o || !Array.isArray(o.students)){ alert("這不是本系統的備份檔。"); return; }
+    if(!confirm("匯入會覆蓋目前所有資料，確定？（匯入前會自動先下載一份目前資料的備份）")) return;
+    // P1-22：匯入前自動落一份現況備份，救得回來
+    downloadFile("匯入前自動備份.json","application/json",JSON.stringify(S,null,1));
+    // P1-22：先補齊欄位、渲染成功才落地；失敗就還原，畫面與資料都不動
+    var prev = S;
     try{
-      var o = JSON.parse(rd.result);
-      if(!o || !Array.isArray(o.students)) throw 0;
-      if(!confirm("匯入會覆蓋目前所有資料，確定？")) return;
-      var b = blankState();
-      Object.keys(b).forEach(function(k){ if(o[k]!==undefined) b[k]=o[k]; });
-      S = b; save(); renderAll();
+      S = normalize(o);
+      renderAll();
+      save();
       alert("備份匯入完成。");
-    }catch(e){ alert("這不是本系統的備份檔。"); }
+    }catch(e){
+      S = prev;
+      try{ renderAll(); }catch(e2){}
+      alert("這份備份檔內容不完整，匯入已取消——原本的資料原封不動。");
+    }
   };
   rd.readAsText(f,"utf-8");
   this.value="";
