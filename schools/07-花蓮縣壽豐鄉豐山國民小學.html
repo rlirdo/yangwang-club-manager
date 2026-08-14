@@ -243,6 +243,19 @@ table.data tr:nth-child(even) td{background:#fbfaf6}
     <table class="data" id="logTable"></table>
     <p class="hint" style="margin-top:8px">進到每一週時已預設「全到」——先按『全到』（或直接用預設），再把沒來的點成缺席／請假即可。請假不計入出席率與材料費份數。誤入沒上課的週次，按「清除本週」即可移除該週點名紀錄。</p>
   </div>
+  <div class="panel acc">
+    <h2>本週課程紀錄（成果報告書・參 的素材）</h2>
+    <p class="hint" style="margin-bottom:8px">每週上完課花一分鐘：一段文字說明＋這週選出的照片「檔名」與圖說。照片本身留在你的電腦或雲端相簿，這裡只記檔名對照——期末列印出來就是「參・課程紀錄」的初稿。</p>
+    <div class="rowwrap" style="margin-bottom:8px">
+      <button class="blk mark" id="btnPrintRec">列印課程紀錄（參）</button>
+    </div>
+    <label>文字說明：</label>
+    <textarea id="recText" style="min-height:80px" placeholder="這週做了什麼、學生的反應、有沒有失敗或意外（失敗是加分題）"></textarea>
+    <div class="rowwrap" style="margin-top:8px">
+      <label>照片檔名：<input id="recPhoto" placeholder="例：IMG_0912.jpg、IMG_0918.jpg" style="width:280px"></label>
+      <label>圖說：<input id="recCap" placeholder="例：圖 3　學生觀察種子發芽（2026/9/23，自然教室）" style="width:360px"></label>
+    </div>
+  </div>
 </section>
 
 <!-- ================= 回饋單 ================= -->
@@ -256,6 +269,10 @@ table.data tr:nth-child(even) td{background:#fbfaf6}
     </div>
     <p class="hint" style="margin-bottom:12px">回饋單收回來後，把每一題各選項的「人數」填進來，百分比自動計算（很同意＋同意 ÷ 回收份數）。</p>
     <table class="data" id="fbTable"></table>
+    <div style="margin-top:14px">
+      <label>第 5 題（開放作答）彙整——「這學期我最喜歡的一堂課」：</label>
+      <textarea id="fbOpen" placeholder="把學生寫的答案抄或摘錄進來，期末寫「伍・結論與建議」直接取材"></textarea>
+    </div>
   </div>
 </section>
 
@@ -263,6 +280,7 @@ table.data tr:nth-child(even) td{background:#fbfaf6}
 <section data-page="exp">
   <div class="panel acc">
     <h2>經費核銷登記（鐘點費・導師費・材料費・餐費）</h2>
+    <p class="hint" style="margin-bottom:8px;color:#B43B3B;font-weight:700">身分證字號、戶籍住址、匯款帳號——這三樣不貼進任何 AI，也不放雲端，只在學校的紙本表上寫。AI 幫你算的是時數、份數、金額，不碰身分資料。</p>
     <div class="rowwrap" style="margin-bottom:8px">
       <select id="expCat">
         <option>材料費</option><option>鐘點費</option><option>導師費</option><option>餐費</option>
@@ -318,10 +336,12 @@ var SCHOOLS = [
   "花蓮縣光復鄉大興國民小學","花蓮縣秀林鄉佳民國民小學","花蓮縣壽豐鄉豐山國民小學","花蓮縣壽豐鄉豐裡國民小學"
 ];
 var DOCS = [
-  ["plan","課程規劃表（24 週）","「課程規劃表」分頁完成後列印"],
+  ["plan","課程規劃表（貳）","「課程規劃表」分頁完成後列印"],
+  ["roster","學生名單（附件一）","「學生名單」分頁列印或匯出 CSV"],
   ["lesson","單元教案","每單元一份，可用 AI 依規劃表產出"],
-  ["sign","社團課簽到表","「教室日誌」分頁每週列印"],
-  ["fb","學生回饋單","「學生回饋單」分頁列印發放，期末統計"],
+  ["sign","社團課簽到表（附件二）","「教室日誌」分頁每週列印"],
+  ["fb","學生回饋單（附件三）","「學生回饋單」分頁列印發放，期末統計"],
+  ["rec","課程紀錄（參）","「教室日誌」分頁逐週填文字說明與照片檔名，列印即初稿"],
   ["obs","觀課紀錄表","觀課後填寫"],
   ["expert","專家聯絡單","邀請專家前填寫"],
   ["demo","專家教學演示紀錄表","專家到校演示當日填寫"],
@@ -342,7 +362,7 @@ function blankState(){
   for (var i=1;i<=24;i++) plan.push({week:i,date:"",topic:"",teacher:"",note:"",hours:2});
   var docs = {};
   DOCS.forEach(function(d){ docs[d[0]] = {st:"todo",note:""}; });
-  var fb = {n:0};
+  var fb = {n:0, open:""};
   FBQ.forEach(function(q){ fb[q[0]] = [0,0,0,0]; });
   return { ver:1, school:PRESET_SCHOOL, schoolOther:"", club:"", t1:"", t2:"", year:"115",
     students:[], plan:plan, logs:{}, fb:fb, selfQ6:"", selfQ7:"", exp:[], docs:docs };
@@ -673,6 +693,10 @@ function renderLog(){
   if(!S.students.length) h += '<tr><td colspan="5">名單是空的——先到「學生名單」分頁貼上匯入。</td></tr>';
   $("#logTable").innerHTML = h;
 
+  // 本週課程紀錄欄位
+  $("#recText").value = log.recText||"";
+  $("#recPhoto").value = log.recPhoto||"";
+  $("#recCap").value = log.recCap||"";
   var r = weekAtt(curWeek);
   var total = S.students.length;
   var unmarked = total - (r.p + r.a + r.l);
@@ -697,16 +721,38 @@ $("#btnAllP").addEventListener("click",function(){
   S.students.forEach(function(s){ log.att[s.id]="p"; });
   save(); renderLog(); renderTop();
 });
+// 課程紀錄欄位存檔（P1-23）
+document.addEventListener("change",function(e){
+  if(["recText","recPhoto","recCap"].indexOf(e.target.id) < 0) return;
+  var log = S.logs[curWeek] || (S.logs[curWeek]={att:{}});
+  log[e.target.id] = e.target.value;
+  save();
+});
+$("#btnPrintRec").addEventListener("click",function(){
+  var rows = "";
+  S.plan.forEach(function(p){
+    var log = S.logs[p.week]||{};
+    if(!(log.recText||log.recPhoto||log.recCap)) return;
+    rows += '<tr><td style="text-align:center">'+p.week+'</td><td>'+esc(p.date)+'</td>'+
+      '<td>'+esc(log.recText||"")+'</td><td>'+esc(log.recPhoto||"")+'</td><td>'+esc(log.recCap||"")+'</td></tr>';
+  });
+  if(!rows){ alert("還沒有任何一週填了課程紀錄。到「教室日誌」選週次，把文字說明或照片檔名填進去。"); return; }
+  doPrint(pHead("課程紀錄（成果報告書・參 初稿）")+
+    '<table><tr><th style="width:40pt">週次</th><th style="width:70pt">日期</th><th>文字說明</th><th style="width:100pt">照片檔名</th><th style="width:120pt">圖說</th></tr>'+rows+'</table>'+
+    '<div class="pfoot">官方格式：兩大項各一段文字說明＋6 張照片；本表為素材初稿，照片檔請依檔名到相簿取用。</div>');
+});
 $("#btnClearWeek").addEventListener("click",function(){
-  if(!confirm("清除第 "+curWeek+" 週的全部點名紀錄？（該週會回到「尚未點名」）")) return;
-  // cleared 旗標讓這一週不再被「預設全到」蓋回去
-  S.logs[curWeek] = {att:{}, cleared:true};
+  if(!confirm("清除第 "+curWeek+" 週的全部點名紀錄？（該週會回到「尚未點名」；課程紀錄文字不受影響）")) return;
+  // cleared 旗標讓這一週不再被「預設全到」蓋回去；課程紀錄欄位保留
+  var old = S.logs[curWeek]||{};
+  S.logs[curWeek] = {att:{}, cleared:true, recText:old.recText||"", recPhoto:old.recPhoto||"", recCap:old.recCap||""};
   save(); renderLog(); renderTop(); renderExp();
 });
 
 /* ============================ 回饋單 ============================ */
 function renderFb(){
   $("#fbN").value = S.fb.n||"";
+  $("#fbOpen").value = S.fb.open||"";
   var n = Number(S.fb.n)||0;
   $("#fbRate").textContent = "應收 "+S.students.length+" 份（名單人數自動帶入）"
     + (n>0 ? "｜回收 "+n+" 份／應收 "+S.students.length+" 份" : "");
@@ -732,6 +778,7 @@ function renderFb(){
 }
 document.addEventListener("change",function(e){
   if(e.target.id==="fbN"){ S.fb.n = Number(e.target.value)||0; save(); renderFb(); renderDash(); }
+  if(e.target.id==="fbOpen"){ S.fb.open = e.target.value; save(); }
   if(e.target.dataset.fbq){
     S.fb[e.target.dataset.fbq][Number(e.target.dataset.i)] = Number(e.target.value)||0;
     save(); renderFb(); renderDash();
@@ -909,6 +956,7 @@ $("#btnPrintKpi").addEventListener("click",function(){
     '<tr><td>總週數</td><td>'+S.plan.length+' 週</td></tr></table>'+
     '<div class="phead" style="margin-top:10pt">肆・效益達成情形（七個百分比，抄進報告書即可）</div>'+
     '<table><tr><th style="width:30pt">項</th><th>指標</th><th style="width:60pt">百分比</th><th>來源與分母</th></tr>'+kpiRows+'</table>'+
+    (S.fb.open ? '<div class="phead" style="margin-top:10pt">伍・結論與建議 素材（回饋單第 5 題彙整）</div><table><tr><td>'+esc(S.fb.open)+'</td></tr></table>' : '')+
     '<div class="pfoot">分子分母口徑送件前以基金會窗口確認為準；旁註回收率（回收 '+(Number(S.fb.n)||0)+' 份／應收 '+S.students.length+' 份）。</div>');
 });
 $("#btnPrintRoster").addEventListener("click",function(){
