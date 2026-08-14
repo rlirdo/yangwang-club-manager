@@ -163,7 +163,7 @@ table.data tr:nth-child(even) td{background:#fbfaf6}
       <label>學年度：<input id="setYear" value="115" style="width:80px"></label>
       <label>總週數：<input id="setWeeks" type="number" min="1" max="60" style="width:80px"></label>
     </div>
-    <p class="hint" style="margin-top:8px">官方規定：24 週、每週至少 2 小時、社團至少 15 人（小校可降至 10 人）、國小收 3–6 年級、國中收 1–3 年級。週次或時數不同的學校（例：28 週、每週 3 小時），改「總週數」與課程規劃表的「時數」欄即可。</p>
+    <p class="hint" style="margin-top:8px">核銷實務（學校主計室會看的地方）：官方範本以 24 週編排，實際週次依各校；每週通常至少 2 小時。社團人數、年級範圍送件前以基金會窗口為準。週次或時數不同的學校（例：28 週、每週 3 小時），改「總週數」與課程規劃表的「時數」欄即可。</p>
   </div>
 
   <div class="panel acc">
@@ -707,9 +707,13 @@ function renderLog(){
   var total = S.students.length;
   var unmarked = total - (r.p + r.a + r.l);
   var tc = teacherCount();
+  var noTeacher = !((S.t1 && S.t1.trim()) || (S.t2 && S.t2.trim()));
   var html = r.marked
     ? "本週出席 <b>"+r.p+"</b> 人／共 "+total+" 人（缺席 "+r.a+"、請假 "+r.l+"）　→　加上授課教師 "+tc+" 位＝<b>材料費 "+(r.p+tc)+" 份</b>"
     : "本週尚未點名。點名完成後，這裡會直接告訴你材料費要買幾份。";
+  if(noTeacher){
+    html += '<div style="color:#B43B3B;margin-top:6px">請先到「總覽」基本資料填指導老師姓名——材料費的教師數會照實填人數算，未填前暫以 2 位計。</div>';
+  }
   if(r.marked && unmarked > 0){
     html += '<div style="color:#B43B3B;margin-top:6px">⚠ 還有 '+unmarked+' 位未點名，這週的數字先不算數——請把每一位都點到（或按「全到」再改掉沒來的）。</div>';
   }
