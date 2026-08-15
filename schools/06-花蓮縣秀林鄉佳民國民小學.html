@@ -309,12 +309,14 @@ table.data tr:nth-child(even) td{background:#fbfaf6}
     <h2>備份與還原</h2>
     <p class="hint" style="margin-bottom:12px">所有資料只存在<b>這台電腦的這個瀏覽器</b>裡。請養成習慣：每次上完課點一次「匯出備份」。<b style="color:#B43B3B">.json 備份裡有整班學生姓名——存學校配發的隨身碟或校內雲端，不要放個人雲端、不要用 LINE 或 email 傳。</b>換電腦時用「匯入備份」還原。電腦要送修、要還、要借人之前：先按「匯出備份」把 .json 存好，再按「清除全部資料」——光刪 HTML 檔沒用，名單存在瀏覽器裡，不會跟著檔案走。</p>
     <div class="rowwrap">
+      <button class="blk go" id="btnPortable">下載隨身版 HTML（含目前資料）</button>
       <button class="blk go" id="btnExport">匯出備份（.json）</button>
       <button class="blk blue" id="btnImportBak">匯入備份</button>
       <input type="file" id="bakFile" accept=".json" style="display:none">
       <button class="blk sm" id="btnSample">載入示範資料</button>
       <button class="blk hot sm" id="btnWipe">清除全部資料</button>
     </div>
+    <p class="hint" style="margin-top:8px"><b>要帶著資料走（隨身碟、換電腦）最保險的做法：</b>按「下載隨身版 HTML」，存出來的檔案雙擊打開，資料就在裡面，繼續編輯即可。用瀏覽器 Ctrl+S 也可以，但存檔類型要選「<b>網頁，完整</b>」（選「僅 HTML」資料不會跟著走）。</p>
   </div>
   <div class="panel">
     <h3>關於本系統</h3>
@@ -327,6 +329,11 @@ table.data tr:nth-child(even) td{background:#fbfaf6}
 </main>
 
 <div id="printArea"></div>
+
+<!-- 內嵌資料節點：每次自動存檔會把整包資料同步寫進來。
+     這樣用 Ctrl+S（網頁，完整）或「下載隨身版」存出去的檔案，
+     換一台電腦、換一個資料夾打開，資料都還在。 -->
+<script type="application/json" id="bootState">null</script>
 
 <script>
 "use strict";
@@ -385,11 +392,15 @@ function teacherCount(){
 }
 
 function save(){
+  var json = JSON.stringify(S);
+  // 同步寫進頁面內嵌節點：Ctrl+S／下載隨身版存出去的檔案會帶著資料走
+  var bs = document.getElementById("bootState");
+  if(bs) bs.textContent = json.replace(/</g, "\\u003c");
   try{
-    localStorage.setItem(STORE_KEY, JSON.stringify(S));
+    localStorage.setItem(STORE_KEY, json);
     $("#savedAt").textContent = "已自動存檔 " + new Date().toLocaleTimeString("zh-TW",{hour12:false});
   }catch(e){
-    $("#savedAt").textContent = "⚠ 無法存檔（瀏覽器封鎖了儲存）";
+    $("#savedAt").textContent = "⚠ 此瀏覽器封鎖了本機儲存——請改用「下載隨身版 HTML」保存資料";
   }
 }
 function normalize(o){
@@ -413,9 +424,17 @@ function normalize(o){
 function load(){
   var raw = null;
   try{ raw = localStorage.getItem(STORE_KEY); }catch(e){}
-  if(!raw) return;
+  if(raw){
+    try{ S = normalize(JSON.parse(raw)); return; }catch(e){}
+  }
+  // 這個瀏覽器位置沒有既有資料 → 讀頁面內嵌的資料節點（Ctrl+S／隨身版帶來的）
   try{
-    S = normalize(JSON.parse(raw));
+    var bs = document.getElementById("bootState");
+    var o = bs ? JSON.parse(bs.textContent) : null;
+    if(o && Array.isArray(o.students)){
+      S = normalize(o);
+      save();   // 落地到這個位置的儲存空間，之後的編輯就存在這裡
+    }
   }catch(e){}
 }
 
@@ -665,10 +684,11 @@ document.addEventListener("change",function(e){
 
 /* ============================ 教室日誌 ============================ */
 var curWeek = 1;
+var logSelWired = false;   // 用 JS 變數而非 DOM 屬性：Ctrl+S 快照會把 DOM 屬性一起存走，導致重開後監聽器掛不回去
 function renderLog(){
   var sel = $("#logWeek");
-  if(!sel.dataset.wired){
-    sel.dataset.wired = "1";
+  if(!logSelWired){
+    logSelWired = true;
     sel.addEventListener("change",function(){ curWeek=Number(sel.value); renderLog(); });
   }
   if(sel.options.length !== S.plan.length){
@@ -1029,6 +1049,18 @@ $("#btnCsvExp").addEventListener("click",function(){
 });
 
 /* ============================ 備份 ============================ */
+$("#btnPortable").addEventListener("click",function(){
+  save();   // 確保內嵌資料節點是最新狀態
+  var html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+  var d = new Date();
+  var stamp = d.getFullYear()+("0"+(d.getMonth()+1)).slice(-2)+("0"+d.getDate()).slice(-2);
+  var blob = new Blob([html], {type:"text/html;charset=utf-8"});
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "仰望社團系統_"+schoolName()+"_"+stamp+".html";
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },500);
+});
 $("#btnExport").addEventListener("click",function(){
   var d = new Date();
   var stamp = d.getFullYear()+("0"+(d.getMonth()+1)).slice(-2)+("0"+d.getDate()).slice(-2);
