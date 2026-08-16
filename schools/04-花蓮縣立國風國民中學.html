@@ -179,7 +179,8 @@ table.data tr:nth-child(even) td{background:#fbfaf6}
 
   <div class="panel acc">
     <h2>文件繳交追蹤（期末結案要交的東西）</h2>
-    <table class="data" id="docTable"></table>
+    <p class="hint" style="margin-bottom:8px">「檔案上傳」可放每一項的成品或佐證（每項最多 50 個檔案）。附件存在<b>這台電腦的瀏覽器</b>裡，不會跟著 .json 備份或隨身版 HTML 走——要交件請用「成果報告書」列的<b>列印成果報告書（Word）</b>，會把上傳的照片與檔案清單一併編進報告。</p>
+    <div style="overflow-x:auto"><table class="data" id="docTable"></table></div>
   </div>
 
   <div class="panel">
@@ -282,9 +283,7 @@ table.data tr:nth-child(even) td{background:#fbfaf6}
     <h2>經費核銷登記（鐘點費・導師費・材料費・餐費）</h2>
     <p class="hint" style="margin-bottom:8px;color:#B43B3B;font-weight:700">身分證字號、戶籍住址、匯款帳號——這三樣不貼進任何 AI，也不放雲端，只在學校的紙本表上寫。AI 幫你算的是時數、份數、金額，不碰身分資料。</p>
     <div class="rowwrap" style="margin-bottom:8px">
-      <select id="expCat">
-        <option>材料費</option><option>鐘點費</option><option>導師費</option><option>餐費</option>
-      </select>
+      <select id="expCat"></select>
       <input id="expDate" type="date" title="認列日期（材料費＝發票日期；鐘點費＝上課日期）">
       <input id="expItem" placeholder="品項／說明" style="width:220px">
       <input id="expAmt" type="number" min="0" placeholder="金額" style="width:110px">
@@ -365,6 +364,7 @@ var FBQ = [
   ["q4","我可以跟別人說明我們的實驗在做什麼，或介紹我做出來的成果","④ 能說明實驗或展示成果"]
 ];
 var FBOPT = ["很同意","同意","普通","不同意"];
+var EXP_CATS = ["材料費","鐘點費","導師費","餐費","教學演示費","指導出席費","交通費","住宿費"];
 
 function blankState(){
   var plan = [];
@@ -557,10 +557,15 @@ function renderDash(){
       '<div class="lbl">'+k.no+" "+esc(k.lbl)+'</div><div class="src">'+esc(k.src)+'</div></div>';
   }).join("");
 
-  var rows = '<tr><th>結案文件</th><th style="width:130px">狀態</th><th>備註／提示</th></tr>';
+  var rows = '<tr><th>結案文件</th><th style="width:300px">檔案上傳</th><th style="width:130px">狀態</th><th>備註／提示</th></tr>';
   DOCS.forEach(function(d){
     var st = S.docs[d[0]].st;
-    rows += '<tr><td><b>'+esc(d[1])+'</b><div class="hint">'+esc(d[2])+'</div></td>'+
+    rows += '<tr><td><b>'+esc(d[1])+'</b><div class="hint">'+esc(d[2])+'</div>'+
+      (d[0]==="final" ? '<div style="margin-top:6px"><button class="blk sm mark" id="btnWordReport">列印成果報告書（Word）</button></div>' : '')+
+      '</td>'+
+      '<td><label class="blk sm" style="cursor:pointer">＋上傳檔案'+
+        '<input type="file" multiple style="display:none" data-updoc="'+d[0]+'"></label>'+
+        '<div class="uplist hint" data-uplist="'+d[0]+'" style="margin-top:4px">（讀取中…）</div></td>'+
       '<td><select data-doc="'+d[0]+'">'+
         ['todo','doing','done'].map(function(v){
           var lbl = {todo:"未開始",doing:"進行中",done:"✔ 已完成"}[v];
@@ -569,7 +574,118 @@ function renderDash(){
       '<td><input class="cell" data-docnote="'+d[0]+'" value="'+esc(S.docs[d[0]].note)+'" placeholder="備註"></td></tr>';
   });
   $("#docTable").innerHTML = rows;
+  renderUploads();
 }
+
+/* ============================ 檔案上傳（IndexedDB，每項上限 50） ============================ */
+var UP_MAX = 50;
+var FDB = null;
+function fdb(cb){
+  if(FDB){ cb(FDB); return; }
+  if(!window.indexedDB){ cb(null); return; }
+  var req = indexedDB.open("yw-files-" + STORE_KEY, 1);
+  req.onupgradeneeded = function(e){
+    var db = e.target.result;
+    var st = db.createObjectStore("files", {keyPath:"id", autoIncrement:true});
+    st.createIndex("doc","doc",{unique:false});
+  };
+  req.onsuccess = function(e){ FDB = e.target.result; cb(FDB); };
+  req.onerror = function(){ cb(null); };
+}
+function fdbList(docKey, cb){
+  fdb(function(db){
+    if(!db){ cb([]); return; }
+    var out = [];
+    var tx = db.transaction("files","readonly").objectStore("files").index("doc").openCursor(IDBKeyRange.only(docKey));
+    tx.onsuccess = function(e){
+      var c = e.target.result;
+      if(c){ out.push(c.value); c.continue(); } else cb(out);
+    };
+    tx.onerror = function(){ cb(out); };
+  });
+}
+function fdbListAll(cb){
+  fdb(function(db){
+    if(!db){ cb([]); return; }
+    var out = [];
+    var tx = db.transaction("files","readonly").objectStore("files").openCursor();
+    tx.onsuccess = function(e){
+      var c = e.target.result;
+      if(c){ out.push(c.value); c.continue(); } else cb(out);
+    };
+    tx.onerror = function(){ cb(out); };
+  });
+}
+function fdbAddFiles(docKey, fileList, done){
+  fdbList(docKey, function(existing){
+    var room = UP_MAX - existing.length;
+    var files = Array.prototype.slice.call(fileList);
+    if(files.length > room){
+      alert("這一項最多 "+UP_MAX+" 個檔案，目前已有 "+existing.length+" 個——只會加入前 "+Math.max(room,0)+" 個。");
+      files = files.slice(0, Math.max(room,0));
+    }
+    if(!files.length){ done(); return; }
+    fdb(function(db){
+      if(!db){ alert("此瀏覽器無法使用檔案儲存（IndexedDB）。"); done(); return; }
+      var tx = db.transaction("files","readwrite");
+      var st = tx.objectStore("files");
+      files.forEach(function(f){
+        st.add({doc:docKey, name:f.name, type:f.type||"application/octet-stream", size:f.size, blob:f, ts:Date.now()});
+      });
+      tx.oncomplete = function(){ done(); };
+      tx.onerror = function(){ alert("檔案存入失敗（可能超過瀏覽器容量）。"); done(); };
+    });
+  });
+}
+function fmtSize(n){
+  if(n > 1048576) return (n/1048576).toFixed(1)+" MB";
+  if(n > 1024) return Math.round(n/1024)+" KB";
+  return n+" B";
+}
+function renderUploads(){
+  $$("[data-uplist]").forEach(function(box){
+    var key = box.dataset.uplist;
+    fdbList(key, function(files){
+      if(!files.length){ box.textContent = "尚未上傳（最多 "+UP_MAX+" 個）"; return; }
+      box.innerHTML = files.map(function(f){
+        return '<div>📎 <a href="#" data-fdl="'+f.id+'">'+esc(f.name)+'</a>'+
+          ' <span style="color:#999">('+fmtSize(f.size)+')</span>'+
+          ' <a href="#" data-fdel="'+f.id+'" data-fdeldoc="'+key+'" style="color:#B43B3B">✕</a></div>';
+      }).join("") + '<div style="color:#999">共 '+files.length+'／'+UP_MAX+' 個</div>';
+    });
+  });
+}
+document.addEventListener("change", function(e){
+  if(!e.target.dataset || !e.target.dataset.updoc) return;
+  var key = e.target.dataset.updoc;
+  fdbAddFiles(key, e.target.files, function(){ e.target.value = ""; renderUploads(); });
+});
+document.addEventListener("click", function(e){
+  var t = e.target;
+  if(t.dataset && t.dataset.fdl){
+    e.preventDefault();
+    fdb(function(db){
+      var rq = db.transaction("files","readonly").objectStore("files").get(Number(t.dataset.fdl));
+      rq.onsuccess = function(){
+        var rec = rq.result; if(!rec) return;
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(rec.blob); a.download = rec.name;
+        document.body.appendChild(a); a.click();
+        setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+      };
+    });
+    return;
+  }
+  if(t.dataset && t.dataset.fdel){
+    e.preventDefault();
+    if(!confirm("刪除這個上傳的檔案？")) return;
+    fdb(function(db){
+      var tx = db.transaction("files","readwrite");
+      tx.objectStore("files").delete(Number(t.dataset.fdel));
+      tx.oncomplete = function(){ renderUploads(); };
+    });
+  }
+});
 document.addEventListener("change",function(e){
   if(e.target.dataset.doc){ S.docs[e.target.dataset.doc].st = e.target.value; save(); }
   if(e.target.dataset.docnote){ S.docs[e.target.dataset.docnote].note = e.target.value; save(); }
@@ -825,6 +941,13 @@ function periodOf(dateStr){
        : (m>="2027-01" && m<="2027-06") ? "下期（1–6 月）" : "⚠ 期別外";
 }
 function renderExp(){
+  var csel = $("#expCat");
+  if(csel.options.length !== EXP_CATS.length){
+    var keepCat = csel.value;
+    csel.innerHTML = "";
+    EXP_CATS.forEach(function(c){ var o=document.createElement("option"); o.value=c; o.textContent=c; csel.appendChild(o); });
+    csel.value = keepCat || EXP_CATS[0];
+  }
   var wsel = $("#expWeek");
   if(wsel.options.length !== S.plan.length + 2){
     var keep = wsel.value;
@@ -846,7 +969,7 @@ function renderExp(){
   });
   if(!S.exp.length) h += '<tr><td colspan="8">尚無登記。</td></tr>';
   $("#expTable").innerHTML = h;
-  $("#expTotals").innerHTML = ["鐘點費","導師費","材料費","餐費"].map(function(c){
+  $("#expTotals").innerHTML = EXP_CATS.map(function(c){
     return '<div class="stat"><b class="num">'+(totals[c]||0).toLocaleString()+'</b><span>'+c+'累計</span></div>';
   }).join("");
 
@@ -903,6 +1026,206 @@ document.addEventListener("click",function(e){
   if(!id) return;
   S.exp = S.exp.filter(function(x){return x.id!==id;});
   save(); renderExp();
+});
+
+/* ============================ 成果報告書 Word 產生（MHT 格式 .doc，離線、零外部程式庫） ============================ */
+function blobToDataB64(blob, cb){
+  var rd = new FileReader();
+  rd.onload = function(){ cb(String(rd.result).split(",")[1] || ""); };
+  rd.onerror = function(){ cb(""); };
+  rd.readAsDataURL(blob);
+}
+function b64utf8(str){
+  // UTF-8 安全的 base64（含換行摺行，MHT 慣例）
+  var b = btoa(unescape(encodeURIComponent(str)));
+  return b.replace(/(.{76})/g, "$1\r\n");
+}
+function buildReportHtml(att, imgRefs){
+  // att: {docKey: [records]}；imgRefs: {id: "imgN.ext"} 供 <img src> 對應 MHT 圖片部件
+  var a = attRate();
+  var tc = teacherCount();
+  var totalHours = S.plan.reduce(function(s,p){ return s + (Number(p.hours===undefined?2:p.hours)||0); }, 0);
+  function pct(v){ return (v===null||v===undefined||v==="") ? "____" : v; }
+  function fbv(qk){ var v = fbPct(qk); return v===null ? "____" : v; }
+  var H = [];
+  H.push('<div style="text-align:center;margin-top:120pt">'+
+    '<p style="font-size:22pt;font-weight:bold">115學年度財團法人仰望教育基金會</p>'+
+    '<p style="font-size:22pt;font-weight:bold">國中小科學社團扶助計畫 成果報告書</p>'+
+    '<p style="font-size:14pt;margin-top:60pt">主辦單位：'+esc(schoolName())+'</p>'+
+    '<p style="font-size:14pt">贊助單位：財團法人仰望教育基金會</p>'+
+    '<p style="font-size:14pt;margin-top:40pt">中華民國　　年　　月　　日</p></div>'+
+    '<br clear="all" style="page-break-before:always">');
+  // 壹
+  H.push('<h1>壹、基本資料</h1><table border="1" cellspacing="0" cellpadding="4" style="border-collapse:collapse;width:100%">');
+  [["贊助單位","財團法人仰望教育基金會"],
+   ["主辦單位", esc(schoolName())],
+   ["負責人／承辦人員", esc((S.t1||"")+(S.t2?("、"+S.t2):""))+"（指導老師）"],
+   ["計畫名稱","115學年度國中小科學社團扶助計畫"],
+   ["計畫期程","自115年08月01日至116年07月31日止"],
+   ["計畫對象","學生（社團學生 "+S.students.length+" 人）"],
+   ["計畫方式","開設科學社團"],
+   ["補助經費","新臺幣　　　　　元整（請以實際使用經費填寫）"],
+   ["開設班別", esc(S.club||"　")],
+   ["課程時間及週數","共 "+S.plan.length+" 週、合計 "+totalHours+" 小時"]
+  ].forEach(function(r){ H.push('<tr><td style="width:120pt;background:#eee"><b>'+r[0]+'</b></td><td>'+r[1]+'</td></tr>'); });
+  H.push('</table><br clear="all" style="page-break-before:always">');
+  // 貳
+  H.push('<h1>貳、課程規劃表</h1><table border="1" cellspacing="0" cellpadding="3" style="border-collapse:collapse;width:100%">'+
+    '<tr style="background:#eee"><th>週次</th><th>日期</th><th>課程內容</th><th>任課教師</th><th>備註</th></tr>');
+  S.plan.forEach(function(p){
+    H.push('<tr><td align="center">'+p.week+'</td><td>'+esc(p.date)+'</td><td>'+esc(p.topic)+'</td><td>'+esc(p.teacher)+'</td><td>'+esc(p.note)+'</td></tr>');
+  });
+  H.push('</table><br clear="all" style="page-break-before:always">');
+  // 參
+  H.push('<h1>參、課程紀錄</h1>');
+  var recTexts = [];
+  S.plan.forEach(function(p){
+    var log = S.logs[p.week]||{};
+    if(log.recText) recTexts.push("第"+p.week+"週（"+(p.date||"")+"）："+log.recText+(log.recCap?("｜"+log.recCap):""));
+  });
+  H.push('<p><b>一、課程／活動紀錄</b></p><p>'+(recTexts.length?recTexts.map(esc).join("<br>"):"（請填入文字說明）")+'</p>');
+  (att.rec||[]).forEach(function(f){
+    if(imgRefs[f.id]) H.push('<p><img src="'+imgRefs[f.id]+'" width="400"><br><span style="font-size:10pt;color:#666">'+esc(f.name)+'</span></p>');
+  });
+  H.push('<p><b>二、學生作品或成果發表</b></p>');
+  var shown = false;
+  ["lesson","final"].forEach(function(k){
+    (att[k]||[]).forEach(function(f){
+      if(imgRefs[f.id]){ H.push('<p><img src="'+imgRefs[f.id]+'" width="400"><br><span style="font-size:10pt;color:#666">'+esc(f.name)+'</span></p>'); shown = true; }
+    });
+  });
+  if(!shown) H.push('<p>（可於「文件繳交追蹤」上傳作品照片後重新產生）</p>');
+  H.push('<br clear="all" style="page-break-before:always">');
+  // 肆
+  H.push('<h1>肆、效益達成情形</h1><table border="1" cellspacing="0" cellpadding="4" style="border-collapse:collapse;width:100%">'+
+    '<tr style="background:#eee"><th style="width:70pt">面向</th><th>執行效益說明</th></tr>'+
+    '<tr><td><b>學生面</b></td><td>'+
+    '1. 興趣激發與動機：'+fbv("q1")+'% 學生反映對科學探索興趣提升。<br>'+
+    '2. 課堂參與：'+fbv("q2")+'% 學生上課專心、能參與討論。<br>'+
+    '3. 獨立操作：'+fbv("q3")+'% 學生能自己（或低度協助）完成實驗操作。<br>'+
+    '4. 表達成果：'+fbv("q4")+'% 學生能說明實驗或展示成果。<br>'+
+    '5. 出席率：社團整體出席率 '+pct(a.rate)+'%（已點名 '+a.weeks+' 週；分母＝總報名人數，請假計入）。<br>'+
+    '（回饋單回收 '+(Number(S.fb.n)||0)+' 份／應收 '+S.students.length+' 份）</td></tr>'+
+    '<tr><td><b>師資面</b></td><td>'+
+    '6. 教學延伸：'+pct(S.selfQ6)+'% 課程延伸應用於正式自然課。<br>'+
+    '7. 專業增能：'+pct(S.selfQ7)+'% 教師認為對專業有實質幫助。</td></tr></table>'+
+    '<br clear="all" style="page-break-before:always">');
+  // 伍
+  H.push('<h1>伍、結論與建議</h1><p>'+(S.fb.open?("學生回饋摘錄（第 5 題）：<br>"+esc(S.fb.open).replace(/\n/g,"<br>")):"（可根據整體計畫給予建議或特殊學生個案分享）")+'</p>'+
+    '<br clear="all" style="page-break-before:always">');
+  // 陸、附件
+  H.push('<h1>陸、附件</h1>');
+  H.push('<h2>附件一、學生名單</h2><table border="1" cellspacing="0" cellpadding="3" style="border-collapse:collapse;width:100%">'+
+    '<tr style="background:#eee"><th>序號</th><th>班級</th><th>性別</th><th>姓名</th></tr>');
+  S.students.forEach(function(s2,i){
+    H.push('<tr><td align="center">'+(i+1)+'</td><td>'+esc(s2.klass)+'</td><td></td><td>'+esc(s2.name)+'</td></tr>');
+  });
+  H.push('</table>');
+  // 附件二 出席表
+  H.push('<h2>附件二、學生出席表（教室日誌）</h2><table border="1" cellspacing="0" cellpadding="2" style="border-collapse:collapse;width:100%;font-size:9pt">');
+  var markedWeeks = [];
+  for(var w=1; w<=S.plan.length; w++){ if(weekAtt(w).marked) markedWeeks.push(w); }
+  H.push('<tr style="background:#eee"><th>座號</th><th>姓名</th>'+markedWeeks.map(function(w){return '<th>W'+w+'</th>';}).join("")+'</tr>');
+  S.students.forEach(function(s2){
+    H.push('<tr><td align="center">'+esc(s2.seat)+'</td><td>'+esc(s2.name)+'</td>'+
+      markedWeeks.map(function(w){
+        var v = (S.logs[w]&&S.logs[w].att) ? S.logs[w].att[s2.id] : "";
+        return '<td align="center">'+(v==="p"?"✓":v==="a"?"✗":v==="l"?"假":"")+'</td>';
+      }).join("")+'</tr>');
+  });
+  H.push('</table><p>累計出席率：'+pct(a.rate)+'%（已點名 '+a.weeks+' 週）</p>');
+  // 附件三 回饋單統計
+  H.push('<h2>附件三、學生回饋單（統計）</h2><table border="1" cellspacing="0" cellpadding="3" style="border-collapse:collapse;width:100%">'+
+    '<tr style="background:#eee"><th>題目</th>'+FBOPT.map(function(o){return '<th>'+o+'</th>';}).join("")+'<th>達成率</th></tr>');
+  FBQ.forEach(function(q){
+    var arr = S.fb[q[0]]||[0,0,0,0];
+    H.push('<tr><td>'+esc(q[1])+'</td>'+arr.map(function(v){return '<td align="center">'+(v||0)+'</td>';}).join("")+
+      '<td align="center">'+fbv(q[0])+'%</td></tr>');
+  });
+  H.push('</table><p>回收 '+(Number(S.fb.n)||0)+' 份／應收 '+S.students.length+' 份</p>');
+  // 附件四 經費使用一覽
+  H.push('<h2>附件四、經費使用一覽（核銷登記）</h2><table border="1" cellspacing="0" cellpadding="3" style="border-collapse:collapse;width:100%">'+
+    '<tr style="background:#eee"><th>類別</th><th>認列日期</th><th>期別</th><th>品項</th><th>金額</th><th>份數</th><th>週次</th></tr>');
+  var expTotal = 0;
+  S.exp.forEach(function(x){
+    expTotal += Number(x.amt)||0;
+    H.push('<tr><td>'+esc(x.cat)+'</td><td>'+esc(x.date)+'</td><td>'+periodOf(x.date)+'</td><td>'+esc(x.item)+'</td>'+
+      '<td align="right">'+(Number(x.amt)||0).toLocaleString()+'</td><td align="center">'+esc(x.qty||"")+'</td>'+
+      '<td align="center">'+(x.week==="all"?"整學期":(x.week?("第"+x.week+"週"):""))+'</td></tr>');
+  });
+  H.push('<tr><td colspan="4" align="right"><b>合計</b></td><td align="right"><b>'+expTotal.toLocaleString()+'</b></td><td colspan="2"></td></tr></table>'+
+    '<p style="font-size:10pt;color:#666">材料費、餐費、茶水費發票統編：82339563 財團法人仰望教育基金會。</p>');
+  // 附件五起：各項目上傳檔案
+  var attIdx = 5;
+  var CN = ["","一","二","三","四","五","六","七","八","九","十","十一","十二","十三","十四","十五","十六"];
+  DOCS.forEach(function(d){
+    var files = att[d[0]]||[];
+    if(!files.length) return;
+    H.push('<h2>附件'+(CN[attIdx]||attIdx)+'、'+esc(d[1])+'（上傳檔案）</h2>');
+    var nonImg = [];
+    files.forEach(function(f){
+      if(imgRefs[f.id]) H.push('<p><img src="'+imgRefs[f.id]+'" width="400"><br><span style="font-size:10pt;color:#666">'+esc(f.name)+'</span></p>');
+      else nonImg.push(f);
+    });
+    if(nonImg.length){
+      H.push('<p><b>非圖片檔案清單（原檔請由系統「文件繳交追蹤」下載附送）：</b></p><ul>'+
+        nonImg.map(function(f){ return '<li>'+esc(f.name)+'（'+fmtSize(f.size)+'）</li>'; }).join("")+'</ul>');
+    }
+    attIdx++;
+  });
+  return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'+
+    '<head><meta charset="utf-8"><title>成果報告書</title>'+
+    '<style>body{font-family:"標楷體","DFKai-SB","Microsoft JhengHei",serif;font-size:12pt}h1{font-size:16pt}h2{font-size:14pt}</style>'+
+    '<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]--></head><body>'+
+    H.join("\n") + '</body></html>';
+}
+function generateWordReport(){
+  var btn = document.getElementById("btnWordReport");
+  if(btn){ btn.disabled = true; btn.textContent = "產生中…"; }
+  fdbListAll(function(all){
+    var att = {};
+    all.forEach(function(f){ (att[f.doc] = att[f.doc]||[]).push(f); });
+    // 圖片檔轉 base64 部件
+    var imgs = all.filter(function(f){ return /^image\//.test(f.type); });
+    var imgRefs = {}, parts = [], pending = imgs.length;
+    function assemble(){
+      var html = buildReportHtml(att, imgRefs);
+      var B = "----=_YWREPORT_BOUNDARY";
+      var mht = 'MIME-Version: 1.0\r\n' +
+        'Content-Type: multipart/related; boundary="'+B+'"; type="text/html"\r\n\r\n' +
+        '--'+B+'\r\nContent-Type: text/html; charset="utf-8"\r\nContent-Transfer-Encoding: base64\r\nContent-Location: report.htm\r\n\r\n' +
+        b64utf8(html) + '\r\n';
+      parts.forEach(function(p){
+        mht += '--'+B+'\r\nContent-Type: '+p.type+'\r\nContent-Transfer-Encoding: base64\r\nContent-Location: '+p.loc+'\r\n\r\n' + p.b64 + '\r\n';
+      });
+      mht += '--'+B+'--\r\n';
+      var d = new Date();
+      var stamp = d.getFullYear()+("0"+(d.getMonth()+1)).slice(-2)+("0"+d.getDate()).slice(-2);
+      var blob = new Blob([mht], {type:"application/msword"});
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "成果報告書_"+schoolName()+"_"+stamp+".doc";
+      document.body.appendChild(a); a.click();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+      if(btn){ btn.disabled = false; btn.textContent = "列印成果報告書（Word）"; }
+    }
+    if(!pending){ assemble(); return; }
+    imgs.forEach(function(f, i){
+      var ext = (f.name.split(".").pop()||"png").toLowerCase().replace(/[^a-z0-9]/g,"") || "png";
+      var loc = "img"+f.id+"."+ext;
+      blobToDataB64(f.blob, function(b64){
+        if(b64){
+          imgRefs[f.id] = loc;
+          parts.push({type: f.type, loc: loc, b64: b64.replace(/(.{76})/g, "$1\r\n")});
+        }
+        pending--;
+        if(pending === 0) assemble();
+      });
+    });
+  });
+}
+document.addEventListener("click", function(e){
+  if(e.target && e.target.id === "btnWordReport") generateWordReport();
 });
 
 /* ============================ 列印 ============================ */
