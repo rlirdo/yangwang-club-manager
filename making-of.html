@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>這套系統是怎麼做出來的｜仰望科學社團管理系統</title>
+<style>
+  :root{
+    --teal:#1C7293; --green:#2E7D5B; --gold:#C99A3E; --deep:#065A82; --navy:#0B1F3A;
+    --paper:#faf7f0; --ink:#111; --dim:#5b5650;
+  }
+  *{box-sizing:border-box}
+  html,body{overflow-x:hidden}
+  body{
+    font-family:system-ui,"Microsoft JhengHei","Noto Sans CJK TC",sans-serif;
+    background:var(--paper); color:var(--ink);
+    max-width:900px; margin:0 auto; padding:0 18px 64px;
+    line-height:1.7; font-size:17px;
+  }
+  h1{font-size:30px; line-height:1.35; margin:24px 0 6px}
+  h2{font-size:23px; margin:0 0 10px}
+  h3{font-size:19px; margin:22px 0 8px}
+  p{margin:0 0 14px}
+  a{color:var(--deep)}
+  .lead{font-size:18px; margin-bottom:18px}
+  .sub{color:var(--dim); font-size:15px; margin:0 0 20px}
+  .small{font-size:15px; color:var(--dim)}
+
+  /* ---- 目錄（sticky） ---- */
+  nav.toc{
+    position:sticky; top:0; z-index:30;
+    background:var(--paper); border-bottom:3px solid #000;
+    padding:8px 0 10px; margin:0 0 26px;
+  }
+  nav.toc .row{overflow-x:auto; white-space:nowrap; -webkit-overflow-scrolling:touch}
+  nav.toc a{
+    display:inline-block; font-size:15px; font-weight:700; text-decoration:none;
+    color:#111; background:#fff; border:2px solid #000; border-radius:3px;
+    padding:5px 10px; margin-right:6px; box-shadow:3px 3px 0 0 rgba(0,0,0,.45);
+  }
+  nav.toc a:active{transform:translate(3px,3px); box-shadow:none}
+
+  /* ---- 積木卡片 ---- */
+  .card{
+    background:#fff; border:3px solid #000; border-radius:3px;
+    box-shadow:6px 6px 0 0 #000; margin:0 0 30px; overflow:hidden;
+  }
+  .card > header{
+    padding:11px 16px; color:#fff; font-weight:700; font-size:19px;
+    display:flex; flex-wrap:wrap; gap:10px; align-items:baseline;
+  }
+  .card > header .no{font-size:15px; opacity:.85}
+  .card .body{padding:16px}
+  .h-teal{background:var(--teal)} .h-green{background:var(--green)}
+  .h-gold{background:var(--gold)} .h-deep{background:var(--deep)}
+  .h-navy{background:var(--navy)}
+
+  .btn{
+    display:inline-block; font:inherit; font-size:16px; font-weight:700;
+    background:#fff; color:#111; border:2px solid #000; border-radius:3px;
+    padding:9px 16px; cursor:pointer; text-decoration:none;
+    box-shadow:3px 3px 0 0 rgba(0,0,0,.45); margin:0 8px 10px 0;
+  }
+  .btn:active{transform:translate(3px,3px); box-shadow:none}
+  .btn-teal{background:var(--teal); color:#fff}
+  .btn-green{background:var(--green); color:#fff}
+  .btn-gold{background:var(--gold); color:#fff}
+
+  /* ---- 程式碼 ---- */
+  .codebox{margin:0 0 16px}
+  .codebar{
+    display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between;
+    background:#111; color:#fff; padding:7px 10px; border:3px solid #000; border-bottom:0;
+    border-radius:3px 3px 0 0; font-size:15px; font-weight:700;
+  }
+  .codebar button{
+    font:inherit; font-size:15px; font-weight:700; background:#fff; color:#111;
+    border:2px solid #000; border-radius:3px; padding:4px 12px; cursor:pointer;
+    box-shadow:3px 3px 0 0 rgba(255,255,255,.35);
+  }
+  .codebar button:active{transform:translate(3px,3px); box-shadow:none}
+  pre{
+    margin:0; background:var(--navy); color:#eef4f7; padding:14px;
+    border:3px solid #000; border-top:0; border-radius:0 0 3px 3px;
+    overflow-x:auto;
+  }
+  pre code{
+    font-family:ui-monospace,Consolas,"Courier New",monospace;
+    font-size:15px; line-height:1.65; white-space:pre;
+  }
+  pre.plain{background:#fffdf6; color:#111; border-top:0}
+  pre.plain code{white-space:pre-wrap; font-family:inherit; font-size:16px}
+
+  /* ---- 表格（窄螢幕堆疊） ---- */
+  .tablewrap{overflow-x:auto}
+  table{width:100%; border-collapse:collapse; font-size:16px; background:#fff}
+  th,td{border:2px solid #000; padding:8px 10px; text-align:left; vertical-align:top}
+  thead th{background:var(--navy); color:#fff; font-size:15px}
+  @media (max-width:600px){
+    table,thead,tbody,tr,th,td{display:block; width:100%}
+    thead{display:none}
+    tbody tr{border:3px solid #000; margin-bottom:12px}
+    tbody td{border:0; border-bottom:2px solid #e2ddd2; padding:8px 10px}
+    tbody tr td:last-child{border-bottom:0}
+    tbody td::before{
+      content:attr(data-l); display:block; font-size:15px; font-weight:700;
+      color:var(--teal); margin-bottom:2px;
+    }
+  }
+
+  /* ---- 圖 ---- */
+  .figwrap{
+    overflow-x:auto; background:#fff; border:3px solid #000; border-radius:3px;
+    padding:12px; margin:0 0 10px;
+  }
+  .figwrap svg{display:block; width:100%; min-width:580px; height:auto}
+  .figcap{font-size:15px; color:var(--dim); margin:0 0 20px}
+
+  /* ---- 工單引用 ---- */
+  .tk{border:3px solid #000; border-radius:3px; background:#fffdf6; margin:0 0 18px}
+  .tk h4{margin:0; padding:10px 14px; background:#f0e9d8; border-bottom:3px solid #000; font-size:17px}
+  .tk .tag{
+    display:inline-block; background:var(--navy); color:#fff; font-size:14px;
+    padding:2px 8px; border-radius:3px; margin-right:8px;
+  }
+  .tk .in{padding:12px 14px}
+  .tk .lbl{font-size:15px; font-weight:700; color:var(--teal); margin:12px 0 4px; letter-spacing:.5px}
+  .tk .lbl:first-child{margin-top:0}
+  .tk blockquote{
+    margin:0; padding:10px 12px; background:#fff; border-left:6px solid var(--gold);
+    font-size:16px;
+  }
+
+  /* ---- 其他區塊 ---- */
+  .rule{
+    background:#fff3f3; border:3px solid #B43B3B; border-radius:3px;
+    padding:12px 14px; margin:0 0 16px; font-weight:700; color:#8a1f1f; font-size:16px;
+  }
+  .note{
+    background:#eefbf4; border:3px solid var(--green); border-radius:3px;
+    padding:12px 14px; margin:0 0 16px; font-size:16px;
+  }
+  .why{
+    background:#f2f7fa; border-left:6px solid var(--deep);
+    padding:10px 14px; margin:0 0 16px; font-size:16px;
+  }
+  ul,ol{margin:0 0 14px; padding-left:22px}
+  li{margin-bottom:7px}
+  .steps{list-style:none; padding-left:0}
+  .steps li{
+    border-left:4px solid var(--teal); padding:2px 0 2px 14px; margin-bottom:14px;
+  }
+  .tl{list-style:none; padding-left:0; margin:0}
+  .tl li{
+    border-left:4px solid var(--gold); padding:0 0 14px 16px; position:relative; margin:0;
+  }
+  .tl li:last-child{border-left-color:transparent; padding-bottom:0}
+  .tl .d{font-weight:700; font-size:17px; color:var(--navy)}
+  .tl .d::before{
+    content:"●"; color:var(--gold); position:absolute; left:-11px; top:0; font-size:16px;
+  }
+  footer{
+    border-top:3px solid #000; margin-top:36px; padding-top:18px; font-size:16px;
+  }
+  footer .links a{margin-right:14px; display:inline-block; margin-bottom:6px}
+  .kbd{
+    display:inline-block; border:2px solid #000; border-radius:3px; background:#fff;
+    padding:0 6px; font-size:15px; font-weight:700;
+  }
+</style>
+</head>
+<body>
+
+<h1>這套「仰望科學社團管理系統」是怎麼做出來的</h1>
+<p class="sub">財團法人仰望教育基金會 × 國立東華大學｜花蓮地區科學社團教師研習 2026/8/19｜製作紀錄</p>
+
+<nav class="toc" aria-label="本頁目錄">
+  <div class="row">
+    <a href="#s0">導覽</a>
+    <a href="#s1">1 這個站長什麼樣</a>
+    <a href="#s2">2 製作五部曲</a>
+    <a href="#s3">3 踩過的三個坑</a>
+    <a href="#s4">4 時間軸</a>
+    <a href="#s5">5 你也可以做一份</a>
+  </div>
+</nav>
+
+<!-- ===================== §0 導覽 ===================== -->
+<section id="s0">
+<div class="card">
+  <header class="h-navy">這頁在講什麼</header>
+  <div class="body">
+    <p class="lead"><b>一個 81 KB、雙擊就開、不用安裝也不用帳號的 HTML 檔，怎麼在五天內從一本官方成果報告書長成九所學校各自在用的社團管理系統——這頁把過程整段攤開，讓你可以照做一次。</b></p>
+    <p class="small">讀者設定：不是資訊背景的國中小老師。文中出現的程式碼只是「給你看它長什麼樣」，看不懂不影響照做——每一步真正要做的事都是「把一段文字貼給 AI」。</p>
+    <p>
+      <a class="btn btn-teal" href="schools/">看成品（九校專屬版）</a>
+      <a class="btn btn-green" href="practice.html">我要自己做一份</a>
+      <a class="btn btn-gold" href="prompts.html">只想拿提示詞</a>
+    </p>
+    <p class="small">「我要自己做一份」指向自造場 <code>practice.html</code>：它把下面的五部曲拆成有引導的關卡。只想要現成提示詞的話，用第三顆按鈕，或直接看 <a href="docs/提示詞-單校系統完整重建.md">docs/提示詞-單校系統完整重建.md</a>。</p>
+  </div>
+</div>
+</section>
+
+<!-- ===================== §1 這個站長什麼樣 ===================== -->
+<section id="s1">
+<div class="card">
+  <header class="h-teal"><span class="no">§1</span> 這個站長什麼樣</header>
+  <div class="body">
+
+    <div class="figwrap">
+      <svg viewBox="0 0 620 470" role="img" aria-label="index.html 母檔經 tools/make_schools.py 產生選校頁與九校各一檔；prompts.html 與 docs 不經產生器">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#000"></path>
+          </marker>
+        </defs>
+        <style>
+          .bx{fill:#fff;stroke:#000;stroke-width:3}
+          .sh{fill:#000}
+          .t1{font:700 19px system-ui,"Microsoft JhengHei",sans-serif;fill:#111}
+          .t1s{font:700 17px system-ui,"Microsoft JhengHei",sans-serif;fill:#111}
+          .t2{font:14px system-ui,"Microsoft JhengHei",sans-serif;fill:#4a4a4a}
+          .t3{font:700 15px system-ui,"Microsoft JhengHei",sans-serif;fill:#fff}
+          .t4{font:700 15px system-ui,"Microsoft JhengHei",sans-serif;fill:#7a5a12}
+          .t5{font:15px system-ui,"Microsoft JhengHei",sans-serif;fill:#4a4a4a}
+        </style>
+
+        <rect class="sh" x="115" y="21" width="400" height="66"></rect>
+        <rect class="bx" x="110" y="16" width="400" height="66"></rect>
+        <text class="t1" x="310" y="46" text-anchor="middle">index.html</text>
+        <text class="t2" x="310" y="70" text-anchor="middle">通用版母檔・唯一真相來源</text>
+
+        <line x1="310" y1="82" x2="310" y2="146" stroke="#000" stroke-width="3" marker-end="url(#ar)"></line>
+        <text class="t2" x="298" y="120" text-anchor="end">一鍵產生</text>
+        <rect x="322" y="98" width="272" height="34" fill="#1C7293" stroke="#000" stroke-width="2"></rect>
+        <text class="t3" x="334" y="120">python tools/make_schools.py</text>
+
+        <rect class="sh" x="25" y="155" width="272" height="62"></rect>
+        <rect class="bx" x="20" y="150" width="272" height="62"></rect>
+        <text class="t1s" x="156" y="178" text-anchor="middle">schools/index.html</text>
+        <text class="t2" x="156" y="200" text-anchor="middle">選校頁（自動產生）</text>
+
+        <rect class="sh" x="333" y="155" width="272" height="62"></rect>
+        <rect class="bx" x="328" y="150" width="272" height="62"></rect>
+        <text class="t1s" x="464" y="178" text-anchor="middle">schools/01 … 09</text>
+        <text class="t2" x="464" y="200" text-anchor="middle">九校各一檔（自動產生）</text>
+
+        <text class="t2" x="156" y="254" text-anchor="middle">自動列出九校連結</text>
+
+        <rect class="bx" x="328" y="232" width="118" height="40"></rect>
+        <text class="t2" x="387" y="257" text-anchor="middle">01-北昌</text>
+        <rect class="bx" x="456" y="232" width="32" height="40"></rect>
+        <text class="t2" x="472" y="257" text-anchor="middle">…</text>
+        <rect class="bx" x="498" y="232" width="102" height="40"></rect>
+        <text class="t2" x="549" y="257" text-anchor="middle">09-西寶</text>
+
+        <rect x="20" y="296" width="580" height="60" fill="#fdf6e6" stroke="#C99A3E" stroke-width="3"></rect>
+        <text class="t4" x="36" y="322">九個檔案的差別只有兩處：</text>
+        <text class="t5" x="36" y="344">STORE_KEY（各校資料互不干擾）與預填的校名。</text>
+
+        <text class="t2" x="310" y="378" text-anchor="middle">以下兩處不經產生器，直接手改</text>
+        <rect class="bx" x="20" y="390" width="272" height="62" stroke-dasharray="9 6"></rect>
+        <text class="t1s" x="156" y="416" text-anchor="middle">prompts.html</text>
+        <text class="t2" x="156" y="438" text-anchor="middle">提示詞卡①–⑤</text>
+        <rect class="bx" x="328" y="390" width="272" height="62" stroke-dasharray="9 6"></rect>
+        <text class="t1s" x="464" y="416" text-anchor="middle">docs/</text>
+        <text class="t2" x="464" y="438" text-anchor="middle">維護指南＋重建提示詞</text>
+      </svg>
+    </div>
+    <p class="figcap">圖 1　整個 repo 的關係圖。實線框是自動產生的，虛線框是手寫的。</p>
+
+    <h3>為什麼是「單一檔案」</h3>
+    <p>整個系統的 HTML、CSS、JavaScript 全部塞在同一個檔案裡，而且<b>不引用任何外部檔案</b>：沒有 CDN、沒有外部字型、沒有外部 JS、沒有框架。維護指南把這條寫成獨立一節：加任何 <code>https://</code> 開頭的 <code>src</code> 之前，先停下來想清楚。</p>
+    <p>對老師端的意義很直接：檔案存到桌面、點兩下就開，不用安裝、不用註冊、沒有網路也能跑；學校電腦裝不了軟體、網路被擋掉，都不影響。附帶好處是「備份」這件事變得很笨但很可靠——把那一個檔案複製到隨身碟，就是備份。</p>
+
+    <h3>為什麼九校要各一份</h3>
+    <p>資料存在瀏覽器的 localStorage 裡，而 localStorage 是<b>依網頁位置隔離</b>的，同一個位置的資料會互相蓋掉。九校如果共用同一個檔案、同一個儲存代號，甲校打開就會看到乙校的名單。</p>
+    <p>解法是給每一校一個專屬的 <code>STORE_KEY</code>：第 01 校是 <code>yw-club-mgr-v1-s01</code>，第 09 校是 <code>yw-club-mgr-v1-s09</code>，以此類推。九個檔案的內容其他部分完全一樣，差別只有這個代號和預填的校名——所以它們不該手寫，該由程式印出來。</p>
+    <div class="rule">因為順序決定代號，加校一律加在清單最後面。改動既有學校的順序，等於換掉它的 STORE_KEY，正在用的老師會覺得「資料不見了」（其實是存到別的代號去了）。</div>
+  </div>
+</div>
+</section>
+
+<!-- ===================== §2 製作五部曲 ===================== -->
+<section id="s2">
+<h2 style="margin:36px 0 14px">§2　製作五部曲</h2>
+
+<!-- ① 定需求 -->
+<div class="card">
+  <header class="h-teal"><span class="no">第一步</span> 定需求：從「期末要交什麼」倒著推</header>
+  <div class="body">
+    <p>沒有先問「系統要有哪些功能」。先問的是：<b>這個計畫期末一定要交出去的東西長什麼樣？</b>答案是官方的成果報告書，它有固定的六節；還有效益達成那一節要填的七個百分比。功能表就是從這兩份東西倒推出來的——期末要填的每一格，學期中就要有一個地方能生出它。</p>
+
+    <h3>六節對照：報告書的每一節，對到系統的哪一頁</h3>
+    <div class="tablewrap">
+    <table>
+      <thead><tr><th>官方成果報告書</th><th>系統裡的落點</th><th>期末怎麼變成報告</th></tr></thead>
+      <tbody>
+        <tr>
+          <td data-l="官方成果報告書">壹・基本資料</td>
+          <td data-l="系統裡的落點">總覽分頁上方（學校、指導老師、社團主題、總週數）</td>
+          <td data-l="期末怎麼變成報告">直接帶進報告書封面與第一節</td>
+        </tr>
+        <tr>
+          <td data-l="官方成果報告書">貳・課程規劃</td>
+          <td data-l="系統裡的落點">課程規劃表分頁（週數 1–60 可調，每週可填時數）</td>
+          <td data-l="期末怎麼變成報告">整張表列印或匯出；另可印授課時數表供鐘點費核銷</td>
+        </tr>
+        <tr>
+          <td data-l="官方成果報告書">參・課程紀錄</td>
+          <td data-l="系統裡的落點">教室日誌分頁的「本週課程紀錄」</td>
+          <td data-l="期末怎麼變成報告">逐週累積的文字與照片檔名，列印即初稿</td>
+        </tr>
+        <tr>
+          <td data-l="官方成果報告書">肆・效益達成</td>
+          <td data-l="系統裡的落點">總覽的七個百分比卡片</td>
+          <td data-l="期末怎麼變成報告">全部自動算好，不用期末回頭翻紙本</td>
+        </tr>
+        <tr>
+          <td data-l="官方成果報告書">伍・結論</td>
+          <td data-l="系統裡的落點">學生回饋單第 5 題（開放作答）彙整</td>
+          <td data-l="期末怎麼變成報告">學生原話直接當結論與建議的素材</td>
+        </tr>
+        <tr>
+          <td data-l="官方成果報告書">陸・附件</td>
+          <td data-l="系統裡的落點">附件一 學生名單／附件二 簽到表與日誌／附件三 回饋單統計</td>
+          <td data-l="期末怎麼變成報告">各分頁直接列印或匯出 CSV</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h3>七個百分比，來源分三種</h3>
+    <ul>
+      <li>① 對科學探索的興趣提升、② 上課專心能參與討論、③ 能自己完成實驗操作、④ 能向別人說明實驗在做什麼——<b>四題都只有一個來源：學生回饋單</b>。</li>
+      <li>⑤ 社團整體出席率——由教室日誌的點名自動計算。</li>
+      <li>⑥ 課程延伸應用到正式自然課的比例、⑦ 老師覺得對專業有實質幫助的比例——老師自評，直接在總覽填。</li>
+    </ul>
+    <div class="why"><b>這一步真正的產出不是功能表，是一句話：</b>回饋單不是期末才想起來的附件，它是 ①–④ 唯一的來源，學期初就要準備好，期末發下去、當場收回。這句話後來被印在系統的總覽頁上——需求分析做對了，它會變成介面上的一行提醒。</div>
+  </div>
+</div>
+
+<!-- ② 出規格 -->
+<div class="card">
+  <header class="h-deep"><span class="no">第二步</span> 出規格：先叫 AI「不要寫程式」</header>
+  <div class="body">
+    <p>第一次找 AI，不是叫它做東西，是叫它<b>只寫規格</b>，而且要明講「請只給我規格說明，不要寫程式」。原因很現實：AI 一旦開始寫程式，它會順手替你決定一堆你還沒想清楚的事，而那些決定藏在幾百行程式碼裡，你看不到、也沒辦法反對。規格是純文字，不會電腦的人也讀得懂、也吵得動。</p>
+
+    <h3>為什麼要用兩隻 AI</h3>
+    <p>這套系統從頭到尾是<b>兩隻 AI 分工</b>：一隻規劃、一隻實作。</p>
+    <ul>
+      <li><b>規劃／檢查的那隻（ChatGPT）</b>：把需求變成規格，最後再回頭當檢查員，對照官方要求挑毛病。</li>
+      <li><b>實作的那隻（Antigravity）</b>：拿到規格才動手，做出檔案並存到指定資料夾。</li>
+    </ul>
+    <p>把它們分開，是因為<b>同一隻 AI 既出題又改考卷，一定會說自己做完了</b>。分成兩邊，規格是白紙黑字的中間產物，實作那隻交出來的東西可以拿規格去對；規劃那隻沒碰過程式碼，才挑得出「你漏了一欄」。這個結構在第四步會再放大一次，變成兩個人、兩隻 AI 互審。</p>
+
+    <div class="codebox">
+      <div class="codebar"><span>規格提示詞（prompts.html 卡①原文・貼給 ChatGPT）</span><button type="button" data-copy="cp-spec">複製</button></div>
+      <pre class="plain"><code id="cp-spec">我是「＿＿＿國小／國中」的老師，學校參加仰望教育基金會的「國中小科學社團扶助計畫」，社團主題是「＿＿＿＿」。
+我要設計一份給國小三到六年級學生的期末回饋單，期末要用它算出四個百分比：
+①對科學探索的興趣提升 ②上課專心能參與討論
+③能自己完成實驗操作 ④能向別人說明實驗在做什麼
+要求：
+・這次先只做「學生回饋單」這一張，其他表先不要做
+・四題選擇題一題對一個百分比，題目要讓國小三年級看得懂
+・選項用四點量表（很同意／同意／普通／不同意）
+・最後加一題開放題（最喜歡的一堂課），給結論與建議用
+請先只給我「題目設計＋計算方式」的規格說明，不要寫程式。用繁體中文。</code></pre>
+    </div>
+    <p class="small">上面是節錄——這是五張卡裡的第①張，用來示範「先出規格」這一手。五張卡全文在 <a href="prompts.html">prompts.html</a>；<b>帶引導、可以邊做邊驗收的完整版在 <a href="practice.html">practice.html</a>（自造場）</b>。要一次做出整套系統的那一整段長提示詞，在 <a href="docs/提示詞-單校系統完整重建.md">docs/提示詞-單校系統完整重建.md</a>。</p>
+    <div class="note">注意底線「＿＿」的位置：那是刻意留的。提示詞裡凡是跟你們學校有關的具體資訊，都要你自己填進去，AI 才不會替你編一個。</div>
+  </div>
+</div>
+
+<!-- ③ 實作 -->
+<div class="card">
+  <header class="h-green"><span class="no">第三步</span> 實作：三條硬規矩，與資料存在哪裡</header>
+  <div class="body">
+    <p>規格定案後才動手。動手之前先立三條規矩，整個專案沒有一次例外：</p>
+    <ol>
+      <li><b>單一檔案。</b>HTML、CSS、JavaScript 全部寫在同一個 <code>.html</code> 裡。</li>
+      <li><b>零外部資源。</b>不准引用任何 CDN、外部字型、外部圖片、外部 JS、任何框架或套件。斷網也要能跑。</li>
+      <li><b>資料只存在自己電腦。</b>沒有伺服器、沒有帳號、沒有任何上傳。學生名單不離開老師那台機器。</li>
+    </ol>
+    <p>第三條在這個場域不是潔癖，是紅線：名單裡是真實的國中小學生。系統能做的事很多，唯獨「把資料送出去」這件事，設計上就不給它做。</p>
+
+    <h3>資料的三層</h3>
+    <div class="figwrap">
+      <svg viewBox="0 0 620 232" role="img" aria-label="三層儲存：localStorage、bootState 內嵌節點、匯出 json 備份">
+        <defs>
+          <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#000"></path>
+          </marker>
+        </defs>
+        <style>
+          .b2{fill:#fff;stroke:#000;stroke-width:3}
+          .hd{font:700 14px system-ui,"Microsoft JhengHei",sans-serif;fill:#fff}
+          .bd{font:13px system-ui,"Microsoft JhengHei",sans-serif;fill:#333}
+          .cap{font:14px system-ui,"Microsoft JhengHei",sans-serif;fill:#4a4a4a}
+          .ban{font:700 15px system-ui,"Microsoft JhengHei",sans-serif;fill:#fff}
+        </style>
+        <text class="cap" x="310" y="26" text-anchor="middle">同一包資料，三個地方各存一份</text>
+
+        <rect class="b2" x="10" y="52" width="180" height="96"></rect>
+        <rect x="10" y="52" width="180" height="28" fill="#1C7293" stroke="#000" stroke-width="3"></rect>
+        <text class="hd" x="100" y="72" text-anchor="middle">① localStorage</text>
+        <text class="bd" x="22" y="104">存在這台電腦、</text>
+        <text class="bd" x="22" y="124">這個瀏覽器位置</text>
+        <text class="bd" x="22" y="142">換檔案就不見</text>
+
+        <line x1="192" y1="100" x2="218" y2="100" stroke="#000" stroke-width="3" marker-end="url(#ar2)"></line>
+
+        <rect class="b2" x="220" y="52" width="180" height="96"></rect>
+        <rect x="220" y="52" width="180" height="28" fill="#2E7D5B" stroke="#000" stroke-width="3"></rect>
+        <text class="hd" x="310" y="72" text-anchor="middle">② #bootState 節點</text>
+        <text class="bd" x="232" y="104">每次存檔同步寫進</text>
+        <text class="bd" x="232" y="124">HTML 檔案本身</text>
+        <text class="bd" x="232" y="142">檔案帶到哪，資料到哪</text>
+
+        <line x1="402" y1="100" x2="428" y2="100" stroke="#000" stroke-width="3" marker-end="url(#ar2)"></line>
+
+        <rect class="b2" x="430" y="52" width="180" height="96"></rect>
+        <rect x="430" y="52" width="180" height="28" fill="#C99A3E" stroke="#000" stroke-width="3"></rect>
+        <text class="hd" x="520" y="72" text-anchor="middle">③ 匯出 .json 備份</text>
+        <text class="bd" x="442" y="104">老師手動匯出</text>
+        <text class="bd" x="442" y="124">電腦送修、換機、</text>
+        <text class="bd" x="442" y="142">出事時的保命符</text>
+
+        <rect x="10" y="172" width="600" height="48" fill="#0B1F3A" stroke="#000" stroke-width="3"></rect>
+        <text class="ban" x="26" y="192">開檔的順序：先讀 ①；① 沒有資料時，才從 ② 還原，</text>
+        <text class="ban" x="26" y="212">並立刻寫回 ①——既有資料永遠優先，不會被舊快照蓋掉。</text>
+      </svg>
+    </div>
+    <p class="figcap">圖 2　三層儲存與開檔還原順序。第三層要老師自己按，前兩層是自動的。</p>
+
+    <div class="codebox">
+      <div class="codebar"><span>存檔與開檔的優先序（依 index.html 實際邏輯精簡）</span><button type="button" data-copy="cp-save">複製</button></div>
+      <pre><code id="cp-save">var STORE_KEY = "yw-club-mgr-v1";   // 九校版各自是 -s01 … -s09
+
+function save(){
+  var json = JSON.stringify(S);
+  // 第二層：同步寫進頁面裡的內嵌節點，資料才會跟著 HTML 檔案走
+  var bs = document.getElementById("bootState");
+  if(bs) bs.textContent = json.replace(/&lt;/g, "\\u003c");
+  try{
+    localStorage.setItem(STORE_KEY, json);   // 第一層：這台電腦、這個位置
+  }catch(e){
+    note("此瀏覽器封鎖了本機儲存——請改用「下載隨身版 HTML」");
+  }
+}
+
+function load(){
+  var raw = null;
+  try{ raw = localStorage.getItem(STORE_KEY); }catch(e){}
+  if(raw){ S = normalize(JSON.parse(raw)); return; }   // 既有資料永遠優先
+
+  // 這個位置沒有資料，才讀內嵌節點（Ctrl+S 或隨身版帶來的那一份）
+  var bs = document.getElementById("bootState");
+  var o  = bs ? JSON.parse(bs.textContent) : null;
+  if(o &amp;&amp; Array.isArray(o.students)){
+    S = normalize(o);
+    save();       // 落地到這個位置，之後的編輯就存在這裡
+  }
+}</code></pre>
+    </div>
+    <div class="why">
+      <b>這段在解決什麼問題？</b>老師把系統存到隨身碟，帶回家插上另一台電腦打開——如果只有第一層，新電腦的 localStorage 是空的，畫面就是一片空白，老師會說「資料不見了」。<br>
+      <code>save()</code> 每次存檔多做一件事：把整包資料寫回 HTML 檔案裡的一個隱形節點，所以資料是<b>跟著檔案走</b>的。<code>load()</code> 則刻意設計成「localStorage 優先」：如果這台電腦本來就有資料，絕對不能被檔案裡那份舊快照蓋掉；也因為這個順序，老師按下「清除全部資料」之後重開，資料不會又活過來。<br>
+      <b>而 <code>normalize()</code> 是另一道保險</b>：不管資料從哪裡來，都先補齊成完整結構，日後系統升版（多一題回饋單、多一份結案文件）也不會把舊備份讀壞。
+    </div>
+  </div>
+</div>
+
+<!-- ④ 驗收與迭代 -->
+<div class="card">
+  <header class="h-gold"><span class="no">第四步</span> 驗收與迭代：AI 開的單，也要人來裁</header>
+  <div class="body">
+    <p>做出來不等於做好了。這個專案最關鍵的一步，是把系統交給<b>另一組人加另一隻 AI</b> 去挑毛病——搭檔陳文盛老師那邊，用五路並行審查（事實查證／系統實測／官方對齊／教學設計／個資紅線）把整套東西掃過一遍，而且<b>每一條意見都再派一個獨立覆核者去試著推翻它，站得住的才留下</b>。</p>
+    <ul>
+      <li>總共動用 57 個審查代理，其中 <b>9 條被覆核者當場擋掉</b>。</li>
+      <li>站得住的成立 42 條，合併成 <b>26 條編號意見＋3 條小瑕疵＝29 條工單</b>，分 P0（當天會卡住）7 條、P1（會害老師回學校做錯）19 條、P2（小瑕疵）3 條。</li>
+      <li>我方的 AI 逐條處理，<b>依每條工單自己寫的 accept 條件在瀏覽器實測過</b>才准結案。</li>
+      <li>最後 <b>29／29 全數完成</b>。其中有 9 條一度被標成 blocked（AI 自己判斷不敢動），最後是由陳文盛老師與游豐兆兩個人決定解除，再照 accept 條件驗收。</li>
+    </ul>
+    <div class="rule">重點句：AI 開的單也要人來裁。29 條裡有 9 條卡在 AI 手上動不了，是人把它推翻、重寫、放行的。AI 很會找問題，但「這個問題該不該現在解、要解到什麼程度」是人的判斷。</div>
+
+    <h3>工單長什麼樣（三條原文實例）</h3>
+    <p class="small">每一條工單都有三段：<b>現況</b>（問題在哪、怎麼測出來的）、<b>要改成</b>（改法）、<b>怎麼算做完</b>（accept 條件）。以下照抄原文，未改寫。工單中提到的「p9」「p13」指的是研習主講簡報的頁碼、「L233」之類指的是程式碼行號。</p>
+
+    <div class="tk">
+      <h4><span class="tag">P0</span>「全到」要升成起手式，並在摘要提示還有幾位未點名</h4>
+      <div class="in">
+        <p class="lbl">現況（節錄原文）</p>
+        <blockquote>系統其實已經有「全到」（L233，就在週次選單旁邊），先按它、再把沒來的各點一下，數字完全正確（實測 15 人扣 2 → 出席 13、材料費 15 份）。麻煩是沒有任何一處告訴老師要先按它……真正會靜靜錯掉的是點到一半漏掉幾個：15 人點了 10 個就切走，畫面顯示出席率 67%、材料費 12 份，看起來很合理，但錯了，而且會一路流進核銷對帳表。</blockquote>
+        <p class="lbl">要改成</p>
+        <blockquote>建議：1. 進到某一週時預設全到，老師只要改掉沒來的。2. 摘要多一行「還有 N 位未點名，這週的數字先不算數」——這條才是主要防線，部分漏點也擋得住。3. p9 那句「一鍵切換」改成「先按『全到』，再改掉沒來的」，動手三示範一次。注意：只把分母改成「真的被點過的人」不夠，出席率會對，但材料費份數還是會少報。</blockquote>
+        <p class="lbl">怎麼算做完（accept）</p>
+        <blockquote>進到某一週時全體預設出席；15 人只點了 10 個就切走，摘要會出現「還有 5 位未點名，這週的數字先不算數」；p9 上寫的是「先按『全到』，再改掉沒來的」。</blockquote>
+      </div>
+    </div>
+
+    <div class="tk">
+      <h4><span class="tag">P1</span> 匯入備份改成「渲染成功才落地」，並補齊欄位</h4>
+      <div class="in">
+        <p class="lbl">現況（節錄原文）</p>
+        <blockquote>「備份與設定」的匯入（L816–832）少了 <code>load()</code> 的補齊步驟。……實測（15 位＋第 1 週全到）：匯入一份 fb 只有 n 與 q1 的 json，訊息說「這不是本系統的備份檔」，但 localStorage 當下已經只剩備份檔裡的 2 人，原本 15 人與第 1 週點名沒了、也沒有復原；畫面則是半新半舊。訊息說失敗、資料其實已經落地，這個矛盾才是問題所在。</blockquote>
+        <p class="lbl">要改成</p>
+        <blockquote>三件：1. 把那三行補齊抽成共用函式（例如 <code>normalize(o)</code>），匯入與開檔兩條路都呼叫。2. <code>S = b; save();</code> 挪到 <code>renderAll()</code> 成功之後：先套到暫存變數、渲染成功才落地；失敗就原資料不動，再顯示錯誤訊息。3. 匯入前自動先匯出一份「匯入前自動備份.json」，<code>downloadFile()</code>（L773）現成可用，兩行就好。</blockquote>
+        <p class="lbl">怎麼算做完（accept）</p>
+        <blockquote>名單 15 位＋第 1 週全到的狀態下匯入一份 fb 只有 n 與 q1 的 json：要嘛補齊後成功匯入，要嘛顯示錯誤而原本 15 位與第 1 週點名原封不動（畫面也不會半新半舊）；而且匯入前會自動落下一份「匯入前自動備份.json」。正常 v1.0 匯出檔再匯入仍顯示「備份匯入完成。」</blockquote>
+      </div>
+    </div>
+
+    <div class="tk">
+      <h4><span class="tag">P2</span> 課程規劃表與經費核銷兩個分頁的表格包一層橫向捲動</h4>
+      <div class="in">
+        <p class="lbl">現況（原文）</p>
+        <blockquote>在 390px（iPhone 直立）量到課程規劃表內容寬 493px、經費核銷 481px，整頁被撐出橫向捲動，「任課教師」「備註」兩欄被推到畫面外（其餘五個分頁都沒事）。優先度不高——8/19 現場是筆電，這條排最後。</blockquote>
+        <p class="lbl">要改成</p>
+        <blockquote>把 <code>table.data</code> 各包一層 <code>&lt;div style="overflow-x:auto"&gt;</code> 就順了。</blockquote>
+        <p class="lbl">怎麼算做完（accept）</p>
+        <blockquote>在 390px 寬度下打開課程規劃表與經費核銷兩個分頁，整頁不再被撐出橫向捲動，「任課教師」「備註」兩欄看得到（改成表格自己橫捲）。</blockquote>
+      </div>
+    </div>
+
+    <div class="note">三條擺在一起看，可以看出 accept 條件的共同點：<b>都是可以用手指頭點出來、用眼睛看出來的具體結果</b>——「摘要會出現這句話」「原本 15 位原封不動」「390px 下不再橫捲」。沒有一條寫「已優化」「已改善」。這就是驗收條件該有的樣子。</div>
+  </div>
+</div>
+
+<!-- ⑤ 量產九校 -->
+<div class="card">
+  <header class="h-navy"><span class="no">第五步</span> 量產九校：一支小程式，九個檔案</header>
+  <div class="body">
+    <p>系統定案之後，九所學校各要一份。手工另存新檔九次、逐檔改校名和儲存代號，不但慢，而且下次改功能要再做九次——遲早出錯。</p>
+    <p><code>tools/make_schools.py</code> 做的事其實只有一件：<b>把母檔讀進來，做四次字串取代，另存成一個新檔，重複九次</b>，最後再印一張選校頁。四次取代分別是：</p>
+    <ul>
+      <li>換掉 <b>預填校名</b>（<code>PRESET_SCHOOL</code>），老師打開就看到自己學校。</li>
+      <li>換掉 <b>儲存代號</b>（<code>STORE_KEY</code> 加上 <code>-s01</code> … <code>-s09</code>），各校資料互不干擾。</li>
+      <li>換掉 <b>分頁標題</b>，瀏覽器分頁上看得到校名。</li>
+      <li>把 <b>相對路徑</b> <code>prompts.html</code> 修成 <code>../prompts.html</code>，因為產出的檔案在子資料夾裡。</li>
+    </ul>
+
+    <div class="codebox">
+      <div class="codebar"><span>tools/make_schools.py 的核心（原檔節錄）</span><button type="button" data-copy="cp-gen">複製</button></div>
+      <pre><code id="cp-gen">src = io.open(os.path.join(ROOT, "index.html"), encoding="utf-8").read()
+for i, s in enumerate(SCHOOLS, 1):
+    out = src.replace('var PRESET_SCHOOL = ""',
+                      'var PRESET_SCHOOL = "%s"' % s)
+    out = out.replace('var STORE_KEY = "yw-club-mgr-v1"',
+                      'var STORE_KEY = "yw-club-mgr-v1-s%02d"' % i)
+    out = out.replace('&lt;title&gt;仰望科學社團管理系統&lt;/title&gt;',
+                      '&lt;title&gt;仰望科學社團管理系統・%s&lt;/title&gt;' % s)
+    out = out.replace('href="prompts.html"', 'href="../prompts.html"')
+    fn = "%02d-%s.html" % (i, s)
+    io.open(os.path.join(outdir, fn), "w", encoding="utf-8").write(out)
+    print("OK", fn)</code></pre>
+    </div>
+
+    <div class="rule">鐵律：永遠只改 index.html，改完重跑產生器；<u>絕對不要手改 schools/ 底下的任何檔案</u>。那九個檔是印出來的，下次任何人跑一次產生器，你手改的東西就全部消失。<br>
+    「改了卻沒效果」這個症狀，十之八九就是改到 schools/ 底下的檔。</div>
+
+    <p>改完的標準流程只有三步：<b>跑產生器 → 在瀏覽器實測（至少測到你改的那一塊） → 推上線</b>。線上是 GitHub Pages，推完約 1–3 分鐘生效，確認時要用無痕視窗，一般視窗會吃快取。</p>
+  </div>
+</div>
+</section>
+
+<!-- ===================== §3 三個坑 ===================== -->
+<section id="s3">
+<h2 style="margin:36px 0 14px">§3　踩過的三個坑</h2>
+<p class="small" style="margin-bottom:18px">這三個都不是「程式寫錯」那種坑。它們共同的特徵是：<b>畫面看起來完全正常，數字也很合理，但它是錯的</b>——而且錯的東西會一路流進要交出去的核銷憑據。</p>
+
+<div class="card">
+  <header class="h-gold"><span class="no">坑 1</span> 貼名單時，Excel 的標題列變成一位幽靈學生</header>
+  <div class="body">
+    <p><b>症狀。</b>老師從 Excel 框選整批學生複製，習慣會連「座號　班級　姓名」那一列一起框進去。貼進系統，訊息回「匯入 16 位」（實際只有 15 位），名單第一筆的姓名欄寫著「姓名」。</p>
+    <p><b>原因。</b>程式只管逐行切欄位，不管第一行是不是標題。接下來兩條路都會錯：逐一點名的話，這位幽靈永遠點不到，出席率變成 15／16＝94%；按「全到」的話出席率是漂亮的 100%，但材料費份數多算一份。更麻煩的是它會被寫進「學生名單.csv」——那是要交給基金會的附件一。</p>
+    <p><b>解法。</b>第一個非空白列先比對表頭字樣（座號／學號／編號／班級／姓名／名字／備註），命中就整列略過，而且訊息要講明白：「匯入 15 位（第 1 列看起來像標題列，已略過）」。</p>
+    <div class="why"><b>順手一起修的第二件事：</b>姓名中間有空白會被切錯。原本的程式用空白切完，硬取前三段當座號、班級、姓名，所以「01 練習學生 甲」會被切成座號 01、班級「練習學生」、姓名「甲」。花蓮不少學校的名單有族語並列或羅馬拼音姓名，中間就是空白。改法是：用空白切的那條路，座號只取開頭的數字、「＿＿班」視為班級，<b>其餘全部併回姓名</b>。出席率和份數不會因此出錯，壞掉的是姓名與班級欄——而那兩欄要印在附件一和附件二上，是核銷憑據，錯了要重印重簽。</div>
+  </div>
+</div>
+
+<div class="card">
+  <header class="h-gold"><span class="no">坑 2</span> 按 Ctrl+S 存下來，換一台電腦打開卻是空的</header>
+  <div class="body">
+    <p><b>症狀。</b>老師在線上版（github.io）打好一整份名單，按 <span class="kbd">Ctrl</span>+<span class="kbd">S</span> 存到桌面，回家用另一台電腦打開那個檔——0 位學生。同一個 HTML、同一份畫面，資料就是不見。</p>
+    <p><b>原因。</b>localStorage 是<b>綁在網頁位置（origin）上的</b>，不是綁在檔案內容上。線上版存的是「github.io 那個位置」的資料，桌面上的檔案是「file:// 這個位置」，兩個是完全不同的儲存空間，本來就不互通。實測過：線上存了 1 位學生，改開本機檔就是 0 位。</p>
+    <p><b>解法（兩層）。</b></p>
+    <ol>
+      <li><b>#bootState 內嵌節點。</b>每次自動存檔時，把整包資料同步寫進 HTML 檔案本身的一個隱形節點；開檔時如果這個位置沒有資料，就從這個節點還原並落地。資料因此<b>跟著檔案走</b>。</li>
+      <li><b>「下載隨身版 HTML（含目前資料）」按鈕。</b>放在「備份與設定」分頁，按一下就存出一個帶著當下全部資料的 HTML，雙擊即開。這比教老師用 Ctrl+S 可靠太多。</li>
+    </ol>
+    <div class="rule">真的要用 Ctrl+S 也可以，但存檔類型一定要選「網頁，完整」。選錯類型存出來的檔案不會帶著那個內嵌節點，一樣是空的。<br>
+    另外提醒兩件事：線上版和本機檔<u>不會互相自動同步</u>，請認定一份當主要工作檔；上傳的照片附件存在瀏覽器資料庫裡，<u>不會</u>跟著檔案走，要在同一台電腦上傳並產出報告。</div>
+  </div>
+</div>
+
+<div class="card">
+  <header class="h-gold"><span class="no">坑 3</span> AI 說「已經做好了」，其實沒做</header>
+  <div class="body">
+    <p><b>症狀。</b>請 AI 改一個功能，它回「已完成，並已優化相關邏輯」。聽起來很像做完了。實際打開瀏覽器一點，功能沒有變。</p>
+    <p><b>原因。</b>AI 交的是「我認為我改了什麼」，不是「這件事現在真的成立」。只要驗收標準停在「已優化」「已改善」這種形容詞，它永遠可以誠實地回報成功——因為根本沒有東西可以拿來否證它。</p>
+    <p><b>解法。</b>兩條，缺一不可：</p>
+    <ol>
+      <li><b>每一條需求都要附 accept 條件</b>，而且必須寫成看得見、點得到的具體結果。對照第四步那三條工單：「摘要會出現『還有 5 位未點名，這週的數字先不算數』」「原本 15 位與第 1 週點名原封不動」「390px 下整頁不再被撐出橫向捲動」——這種句子 AI 沒辦法含混過去。</li>
+      <li><b>要人開瀏覽器親手點過。</b>29 條工單沒有一條是靠 AI 回報結案的，全部照 accept 條件在瀏覽器實測。</li>
+    </ol>
+    <div class="note">寫 accept 條件有一個很好用的自我檢查：把它唸出來，如果沒辦法由一個完全不懂程式的人拿去照做並判斷對錯，那條就寫得不夠具體。</div>
+  </div>
+</div>
+</section>
+
+<!-- ===================== §4 時間軸 ===================== -->
+<section id="s4">
+<div class="card">
+  <header class="h-deep"><span class="no">§4</span> 時間軸：五天</header>
+  <div class="body">
+    <ul class="tl">
+      <li>
+        <div class="d">8/12　需求成形</div>
+        <div>從官方成果報告書的六節與七個百分比倒推，確定系統要有哪些分頁、每一頁對應報告書的哪一段。這一天沒有寫任何程式。</div>
+      </li>
+      <li>
+        <div class="d">8/13　首版上線</div>
+        <div>單一 HTML 檔做出來，推上 GitHub Pages。同一天開始第一輪審查——當天就被指出名單匯入會把 Excel 標題列當成學生、「全到」沒人知道要先按。</div>
+      </li>
+      <li>
+        <div class="d">8/14　雙人雙 AI，29 條工單</div>
+        <div>五路並行審查加獨立覆核（57 個代理，9 條被擋掉），成立 42 條、合併成 29 條工單。同一天全部處理完並逐條驗收：提示詞卡獨立成 prompts.html、名單匯入擋標題列、「全到」升成起手式、下載連結全部換成 Pages 網址。</div>
+      </li>
+      <li>
+        <div class="d">8/15　定案</div>
+        <div>把剩下的 blocked 工單由人裁決解除、材料費的老師人數改成讀實填值、出席率分母改成當週實際被點名的人數、匯入備份改成「渲染成功才落地」。系統與研習簡報的每一頁對齊成同一套說法。</div>
+      </li>
+      <li>
+        <div class="d">8/16　第九校、Word 報告書、隨身版修復</div>
+        <div>第九所學校（西寶國小）加入，重跑產生器；新增「一鍵列印成果報告書（Word）」與檔案上傳追蹤；修好「換一台電腦打開資料是空的」——也就是 #bootState 內嵌節點那一版。維護指南與重建提示詞同日補齊。</div>
+      </li>
+    </ul>
+    <p class="small" style="margin-top:14px">五天裡，真正在「寫程式」的時間是最少的一段。多數時間花在<b>把要交的東西看清楚</b>（第一天）和<b>逐條驗收</b>（第三、四天）。</p>
+  </div>
+</div>
+</section>
+
+<!-- ===================== §5 你也可以做一份 ===================== -->
+<section id="s5">
+<div class="card">
+  <header class="h-green"><span class="no">§5</span> 你也可以做一份</header>
+  <div class="body">
+    <p>兩條路，看你想學到什麼。</p>
+
+    <h3>路線 A：一步一步做，邊做邊驗收</h3>
+    <p>到 <a href="practice.html">practice.html</a>（自造場）。它把上面的五部曲拆成有引導的小關卡，每一關都告訴你這一步該貼什麼、做完要看到什麼，做完還可以把成品檔案丟回那一頁，它會用二十項檢查幫你自動驗收、算分、指出缺哪一項。<b>推薦給想真的學會這套方法的人</b>——重點不是做出這個系統，是學會「先出規格、再實作、用 accept 條件驗收」這個循環，之後你要做任何一份表單都能用。</p>
+
+    <h3>路線 B：一整段丟給 AI，直接拿結果</h3>
+    <p>打開 <a href="docs/提示詞-單校系統完整重建.md">docs/提示詞-單校系統完整重建.md</a>，把裡面的整段提示詞複製貼給 Antigravity（或 ChatGPT／Claude）。貼之前只要填兩個空格：學校全稱、要存到哪個資料夾。跑完它會告訴你檔案在哪，雙擊打開就是可以用的系統。</p>
+    <div class="note">只是想要現成檔案、不打算自己做？那兩條都不用走——直接到 <a href="schools/">schools/</a> 點你的學校，再到「備份與設定」按「下載隨身版 HTML」存到桌面就好。線上網址：<a href="https://rlirdo.github.io/yangwang-club-manager/">https://rlirdo.github.io/yangwang-club-manager/</a></div>
+    <p class="small">要改別人做好的那一份、或要維護九校版，讀 <a href="docs/維護指南-九校系統.md">docs/維護指南-九校系統.md</a>：裡面有檔案地圖、十則改法食譜、標準三步流程，以及「不要動的東西」清單。</p>
+
+    <h3>最後一句</h3>
+    <p>這套東西不是「AI 自己做出來的」。AI 做的是打字很快、找碴很勤；決定要做什麼、決定哪一條意見成立、決定什麼叫做完的，是人。<b>你不需要會寫程式，但你需要說得出「這樣才算做完」。</b></p>
+
+    <div class="rule">紅線（做任何一份都適用）：真人學生名單、逐人出席與回饋、照片、身分證字號、戶籍住址、匯款帳號——不貼進任何 AI、不放個人雲端。AI 幫你算的是時數、份數、金額，不碰身分資料。本頁所有示範資料（例：練習學生01）一律虛構。</div>
+  </div>
+</div>
+</section>
+
+<footer>
+  <p><b>陳文盛 × 游豐兆｜CC BY-NC-SA｜聯絡 erntmap@gmail.com</b></p>
+  <p class="links">
+    <a href="index.html">系統首頁</a>
+    <a href="schools/">九校專屬版</a>
+    <a href="prompts.html">提示詞卡</a>
+    <a href="practice.html">自造場</a>
+  </p>
+  <p class="small">財團法人仰望教育基金會 × 國立東華大學「國中小科學社團扶助計畫」配套工具｜2026/8/19 花蓮地區科學社團教師研習</p>
+</footer>
+
+<script>
+document.addEventListener("click", function(e){
+  var btn = e.target;
+  var id = btn && btn.getAttribute ? btn.getAttribute("data-copy") : null;
+  if(!id) return;
+  var node = document.getElementById(id);
+  if(!node) return;
+  var text = node.textContent;
+  function done(){
+    var old = btn.textContent;
+    btn.textContent = "已複製！";
+    setTimeout(function(){ btn.textContent = old === "已複製！" ? "複製" : old; }, 1500);
+  }
+  function fallback(){
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "readonly");
+    ta.style.position = "fixed";
+    ta.style.top = "-1000px";
+    document.body.appendChild(ta);
+    ta.select();
+    try{ document.execCommand("copy"); done(); }
+    catch(err){ window.alert("這個瀏覽器不給程式複製，請手動全選文字複製。"); }
+    ta.parentNode.removeChild(ta);
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done, fallback);
+  } else {
+    fallback();
+  }
+});
+</script>
+</body>
+</html>

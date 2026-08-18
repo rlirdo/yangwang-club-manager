@@ -49,7 +49,8 @@ PICKER_TEMPLATE = '''<!DOCTYPE html>
 用 <b>Ctrl+S</b> 也可以，但存檔類型要選「<b>網頁，完整</b>」。</div>
 <div class="warn">注意：線上版和存到本機的檔案<u>不會互相自動同步</u>——請認定一份當主要工作檔。
 要把資料搬到另一份或另一台電腦：用「下載隨身版 HTML」整包帶走，或「匯出備份 → 匯入備份」。</div>
-<p class="sub"><a href="../index.html">→ 通用版（未預填校名）</a>｜<a href="../prompts.html">提示詞卡①–⑤</a></p>
+<p class="sub"><a href="../index.html">→ 通用版（未預填校名）</a>｜<a href="../prompts.html">提示詞卡①–⑤</a><br>
+<a href="../making-of.html">這套系統是怎麼做出來的</a>｜<a href="../practice.html">自造場：自己做一份（可上傳驗收）</a></p>
 </body>
 </html>
 '''
@@ -64,6 +65,8 @@ def main():
         out = out.replace('var STORE_KEY = "yw-club-mgr-v1"', 'var STORE_KEY = "yw-club-mgr-v1-s%02d"' % i)
         out = out.replace('<title>仰望科學社團管理系統</title>', '<title>仰望科學社團管理系統・%s</title>' % s)
         out = out.replace('href="prompts.html"', 'href="../prompts.html"')
+        for _f in ("making-of.html", "practice.html"):
+            out = out.replace('href="%s"' % _f, 'href="../%s"' % _f)
         fn = "%02d-%s.html" % (i, s)
         io.open(os.path.join(outdir, fn), "w", encoding="utf-8").write(out)
         links.append((fn, s))
