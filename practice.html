@@ -151,7 +151,7 @@ details .body{padding:14px}
     <h3>一整段規格丟給 AI，等它做完</h3>
     <p>複製一整份完整規格提示詞 → 貼進 Antigravity → 等它做完 → 直接跳到驗收區檢查。</p>
     <p class="note"><b>趕時間再用，學得比較淺。</b>整段丟出去，AI 常常會漏做其中幾項，而且因為你沒有逐段看過，出錯時很難判斷是哪一塊出問題。時間夠的話請走分段路。</p>
-    <p><button class="btn big copy" data-copy="fullPrompt">複製完整規格提示詞（整段）</button></p>
+    <p><button class="btn big copy" data-copy="fullPrompt" data-section="body">複製完整規格提示詞（整段）</button></p>
     <p><a href="#checker">做完了，直接去上傳驗收</a></p>
   </div>
   </section>
@@ -913,12 +913,25 @@ function copyText(text, btn){
     navigator.clipboard.writeText(text).then(done, fallback);
   } else { fallback(); }
 }
+/* 只取「從這裡開始複製 …… 複製到這裡結束」之間的提示詞本體 */
+function promptBody(t){
+  var lines = t.split(/\r?\n/), a = -1, z = -1;
+  for(var i=0;i<lines.length;i++){
+    if(a < 0 && lines[i].indexOf("從這裡開始複製") >= 0){ a = i + 1; continue; }
+    if(a >= 0 && lines[i].indexOf("複製到這裡結束") >= 0){ z = i; break; }
+  }
+  if(a < 0 || z < 0 || z <= a) return t;
+  return lines.slice(a, z).join("\n").replace(/^\s+|\s+$/g, "");
+}
+
 document.addEventListener("click", function(e){
   var b = e.target.closest ? e.target.closest("[data-copy]") : null;
   if(!b) return;
   var el = document.getElementById(b.getAttribute("data-copy"));
   if(!el) return;
-  copyText(el.textContent, b);
+  var txt = el.textContent;
+  if(b.getAttribute("data-section") === "body"){ txt = promptBody(txt); }
+  copyText(txt, b);
 });
 
 /* ===================== 進度（localStorage） ===================== */
@@ -962,7 +975,7 @@ var CHECKS = [
 {g:"hard",k:"h1",name:"單一檔案自足",stage:1,hard:true,how:"檔案要有完整的 &lt;!DOCTYPE html&gt; 與 html／head／body 結構，而且所有程式都寫在這一個檔案裡。"},
 {g:"hard",k:"h2",name:"零外部資源",stage:1,hard:true,how:"把所有指向 http／https 的 script、link、img 以及 @import 全部拿掉，改成寫在檔案裡。"},
 {g:"hard",k:"h3",name:"繁體中文介面",stage:1,hard:true,how:"介面出現簡體字。請整份改成繁體中文、台灣用語。"},
-{g:"hard",k:"h4",name:"檔案大小合理（≥30KB）",stage:1,hard:true,how:"檔案太小，多半只做了骨架。請照第 2～6 關的提示詞把功能補齊。"},
+{g:"hard",k:"h4",name:"檔案大小合理（≥20KB）",stage:99,hard:true,how:"檔案太小，多半只做了骨架。請照下面其他「未偵測到」的項目把功能補齊——功能做齊了，檔案自然就夠大。"},
 {g:"data",k:"d1",name:"localStorage 讀寫",stage:2,hard:false,how:"沒偵測到 localStorage 存取。資料一關閉就會消失。"},
 {g:"data",k:"d2",name:"內嵌 #bootState 節點",stage:2,hard:false,how:"沒有 &lt;script type=\"application/json\" id=\"bootState\"&gt;。檔案帶到別台電腦資料就不見了。"},
 {g:"data",k:"d3",name:"匯出 .json 備份",stage:2,hard:false,how:"沒偵測到匯出 .json 的 Blob 下載。老師沒有辦法把資料存起來。"},
@@ -1000,7 +1013,7 @@ var RULES = {
     }
     return "pass";
   },
-  h4: function(t, size){ return size >= 30*1024 ? "pass" : "bad"; },
+  h4: function(t, size){ return size >= 20*1024 ? "pass" : "bad"; },
 
   d1: function(t){ return /localStorage\s*\.\s*(setItem|getItem)/.test(t) ? "pass" : "miss"; },
   d2: function(t){ return /id\s*=\s*["']bootState["']/.test(t) ? "pass" : "miss"; },
@@ -1020,10 +1033,18 @@ var RULES = {
     return "pass";
   },
   f2: function(t){
+    /* 分隔符切割：split(/\t|,|，|、/) 之類 */
     var multi = /\.split\s*\(\s*\/[^\n]{0,80}?(\\t|、|，)/.test(t) ||
                 /\.split\s*\(\s*["']\\t["']\s*\)/.test(t);
-    var space = /\.split\s*\(\s*\/\\s\+\//.test(t) || /\.split\s*\(\s*["']\s+["']\s*\)/.test(t);
-    return (multi && space) ? "pass" : "miss";
+    /* 先用 replace 把各種分隔符統一成一種再切 —— 也算數 */
+    var normalize = /\.replace\s*\(\s*\/[^\n]{0,80}?(\\t|、|，)/.test(t);
+    /* 空白切割 fallback */
+    var space = /\.split\s*\(\s*\/\\s\+\//.test(t) ||
+                /\.split\s*\(\s*["']\s+["']\s*\)/.test(t) ||
+                /\.split\s*\(\s*\/[^\n]{0,40}\\s[^\n]{0,40}\//.test(t);
+    /* 三個訊號有兩個就算做到了（AI 的寫法很多種，不必和我們一模一樣） */
+    var hit = (multi?1:0) + (normalize?1:0) + (space?1:0);
+    return hit >= 2 ? "pass" : "miss";
   },
   f3: function(t){
     var three = t.indexOf("出席")>=0 && t.indexOf("缺席")>=0 && t.indexOf("請假")>=0;
@@ -1096,7 +1117,7 @@ function grade(items){
     if(it.st === "pass"){ score++; }
     else {
       if(it.hard) hardFail = true;
-      if(it.stage < firstStage) firstStage = it.stage;
+      if(it.stage < 99 && it.stage < firstStage) firstStage = it.stage;
     }
   });
   var g, why;
